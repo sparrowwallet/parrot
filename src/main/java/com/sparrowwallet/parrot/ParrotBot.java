@@ -99,8 +99,8 @@ public class ParrotBot implements LongPollingSingleThreadUpdateConsumer {
         String welcomeText = """
                 ⚠️WARNING: There are scammers impersonating admins in this chat ⚠️
                 
-                If you are a new user, you are STRONGLY RECOMMENDED to send messages anonymously via the @NewSparrowWalletUser bot.
-                Your messages will be forwarded here under a pseudonym.
+                If you are a new user, you are STRONGLY RECOMMENDED to send messages anonymously via @AnonSparrowChatBot.
+                Any messages sent to the bot will be forwarded here under a pseudonym.
                 
                 If you ignore this advice, expect to be contacted by several scammers impersonating admins. YOU HAVE BEEN WARNED.
                 """;
