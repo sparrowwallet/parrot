@@ -4,68 +4,64 @@ import com.sparrowwallet.parrot.ForwardedMessage;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
-import java.util.*;
+import java.util.List;
 
 @Component
-@ConditionalOnProperty(name = "store.implementation", havingValue = "javaStore")
-public class JavaStore implements Store {
-    private final Map<String, List<Integer>> sentNymMessages = new HashMap<>();
-    private final Map<Integer, ForwardedMessage> sentMessages = new HashMap<>();
-    private final Map<Integer, Integer> sentReplies = new HashMap<>();
-    private final Set<String> bannedNyms = new HashSet<>();
+@ConditionalOnProperty(name = "store.implementation", havingValue = "redisStore")
+public class RedisStore implements Store {
 
     @Override
     public void addSentNymMessage(String nym, Integer messageId) {
-        sentNymMessages.computeIfAbsent(nym, _ -> new ArrayList<>()).add(messageId);
+
     }
 
     @Override
     public List<Integer> getSentNymMessageIds(String nym) {
-        return sentNymMessages.get(nym);
+        return List.of();
     }
 
     @Override
     public void addSentMessage(Integer messageId, ForwardedMessage forwardedMessage) {
-        sentMessages.put(messageId, forwardedMessage);
+
     }
 
     @Override
     public boolean hasSentMessage(Integer messageId) {
-        return sentMessages.containsKey(messageId);
+        return false;
     }
 
     @Override
     public ForwardedMessage getSentMessage(Integer messageId) {
-        return sentMessages.get(messageId);
+        return null;
     }
 
     @Override
     public void addSentReply(Integer replyId, Integer messageId) {
-        sentReplies.put(replyId, messageId);
+
     }
 
     @Override
     public boolean hasSentReply(Integer replyId) {
-        return sentReplies.containsKey(replyId);
+        return false;
     }
 
     @Override
     public Integer getSentReply(Integer replyId) {
-        return sentReplies.get(replyId);
+        return 0;
     }
 
     @Override
     public void addBannedNym(String nym) {
-        bannedNyms.add(nym);
+
     }
 
     @Override
     public boolean hasBannedNym(String nym) {
-        return bannedNyms.contains(nym);
+        return false;
     }
 
     @Override
     public boolean removeBannedNym(String nym) {
-        return bannedNyms.remove(nym);
+        return false;
     }
 }
