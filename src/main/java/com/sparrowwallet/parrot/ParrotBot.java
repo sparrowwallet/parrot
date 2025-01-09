@@ -51,6 +51,9 @@ public class ParrotBot implements SpringLongPollingBot, LongPollingSingleThreadU
     public void consume(Update update) {
         if(update.hasMessage() && update.getMessage().getChat().isUserChat()) {
             String userName = update.getMessage().getFrom().getUserName();
+            if(userName == null) {
+                userName = update.getMessage().getFrom().getId().toString();
+            }
             if(!rateLimiter.tryAcquire(userName)) {
                 sendRateLimitedMessage(update);
             } else if(update.getMessage().hasText()) {
