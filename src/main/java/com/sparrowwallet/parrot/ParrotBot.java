@@ -189,7 +189,7 @@ public class ParrotBot implements SpringLongPollingBot, LongPollingSingleThreadU
                     .photo(inputFile)
                     .caption(update.getMessage().getCaption())
                     .replyToMessageId(forwardedMessage.messageId())
-                    .chatId(getGroupId()).build();
+                    .chatId(forwardedMessage.chatId()).build();
 
             try {
                 Message sentMessage = telegramClient.execute(replyPhoto);
