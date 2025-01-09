@@ -54,7 +54,7 @@ public class NymGenerator {
         int nounHash = second.hashCode();
         String noun = ENGLISH_NOUNS.get(Math.abs(nounHash) % ENGLISH_NOUNS.size());
 
-        return capitalize(adjective) + capitalize(noun);
+        return "#" + capitalize(adjective) + capitalize(noun);
     }
 
     private static byte[] sha256Hash(String userName) {

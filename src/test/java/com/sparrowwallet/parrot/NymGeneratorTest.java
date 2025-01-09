@@ -8,20 +8,20 @@ public class NymGeneratorTest {
     public void generateNym() {
         String name = "Joe1234";
         String nym = NymGenerator.getNym(name);
-        Assertions.assertEquals("WickedGolf", nym);
+        Assertions.assertEquals("#WickedGolf", nym);
     }
 
     @Test
     public void generateNym2() {
         String name = "Alice5678";
         String nym = NymGenerator.getNym(name);
-        Assertions.assertEquals("WebbedEditor", nym);
+        Assertions.assertEquals("#WebbedEditor", nym);
     }
 
     @Test
     public void generateNym3() {
         String name = "Charlie9";
         String nym = NymGenerator.getNym(name);
-        Assertions.assertEquals("ElatedMood", nym);
+        Assertions.assertEquals("#ElatedMood", nym);
     }
 }

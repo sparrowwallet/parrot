@@ -78,7 +78,7 @@ public class ParrotBot implements SpringLongPollingBot, LongPollingSingleThreadU
         try {
             Message sentMessage = telegramClient.execute(sendMessage);
             sentMessages.computeIfAbsent(nym, _ -> new ArrayList<>()).add(sentMessage.getMessageId());
-            sendForwardConfirmation(update.getMessage().getChatId());
+            sendForwardConfirmation(update.getMessage().getChatId(), false);
         } catch(TelegramApiException e) {
             log.error("Error forwarding message", e);
         }
@@ -94,18 +94,18 @@ public class ParrotBot implements SpringLongPollingBot, LongPollingSingleThreadU
         PhotoSize photoSize = update.getMessage().getPhoto().getFirst();
         InputFile inputFile = new InputFile(photoSize.getFileId());
         SendPhoto sendPhoto = new SendPhoto(getGroupId(), inputFile);
-        sendPhoto.setCaption(nym + ": " + (update.getMessage().getCaption() == null ? "" : update.getMessage().getCaption()));
+        sendPhoto.setCaption(update.getMessage().getCaption() == null ? "From " + nym : nym + ": " + update.getMessage().getCaption());
 
         try {
             Message sentMessage = telegramClient.execute(sendPhoto);
             sentMessages.computeIfAbsent(nym, _ -> new ArrayList<>()).add(sentMessage.getMessageId());
-            sendForwardConfirmation(update.getMessage().getChatId());
+            sendForwardConfirmation(update.getMessage().getChatId(), true);
         } catch(TelegramApiException e) {
             log.error("Error forwarding photo", e);
         }
     }
 
-    private void sendForwardConfirmation(Long chatId) {
+    private void sendForwardConfirmation(Long chatId, boolean photo) {
         if(groupName == null) {
             try {
                 GetChat getChat = new GetChat(getGroupId());
@@ -118,7 +118,7 @@ public class ParrotBot implements SpringLongPollingBot, LongPollingSingleThreadU
 
         SendMessage sendMessage = SendMessage.builder()
                 .chatId(chatId)
-                .text("Your message has been forwarded to " + groupName).build();
+                .text("Your " + (photo ? "image" : "message") + " has been forwarded to " + groupName).build();
         try {
             telegramClient.execute(sendMessage);
         } catch(TelegramApiException e) {
