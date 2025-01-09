@@ -263,7 +263,7 @@ public class ParrotBot implements SpringLongPollingBot, LongPollingSingleThreadU
 
         SendMessage sendMessage = SendMessage.builder()
                 .chatId(chatId)
-                .text(nym + "has been banned, and all forwarded messages have been deleted").build();
+                .text(nym + " has been banned, and all forwarded messages have been deleted").build();
         try {
             telegramClient.execute(sendMessage);
         } catch(TelegramApiException e) {
@@ -276,7 +276,7 @@ public class ParrotBot implements SpringLongPollingBot, LongPollingSingleThreadU
 
         SendMessage sendMessage = SendMessage.builder()
                 .chatId(chatId)
-                .text(nym + "has been unbanned").build();
+                .text(nym + " has been unbanned").build();
         try {
             telegramClient.execute(sendMessage);
         } catch(TelegramApiException e) {
