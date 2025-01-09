@@ -50,11 +50,9 @@ public class ParrotBot implements SpringLongPollingBot, LongPollingSingleThreadU
     @Override
     public void consume(Update update) {
         if(update.hasMessage() && update.getMessage().getChat().isUserChat()) {
-            String userName = update.getMessage().getFrom().getUserName();
-            if(userName == null) {
-                userName = update.getMessage().getFrom().getId().toString();
-            }
-            if(!rateLimiter.tryAcquire(userName)) {
+            Long userId = update.getMessage().getFrom().getId();
+
+            if(!rateLimiter.tryAcquire(userId)) {
                 sendRateLimitedMessage(update);
             } else if(update.getMessage().hasText()) {
                 if(update.getMessage().getText().startsWith("/ban ") && isGroupAdmin(update.getMessage().getFrom().getId())) {
@@ -64,17 +62,17 @@ public class ParrotBot implements SpringLongPollingBot, LongPollingSingleThreadU
                 } else if(update.getMessage().getText().startsWith("/start")) {
                     sendStartMessage(update);
                 } else {
-                    forwardText(update, userName);
+                    forwardText(update, userId.toString());
                 }
             } else if(update.getMessage().hasPhoto()) {
-                forwardPhoto(update, userName);
+                forwardPhoto(update, userId.toString());
             }
         } else if(update.hasMessage() && update.getMessage().getChat().isSuperGroupChat()) {
             if(update.getMessage().getNewChatMembers() != null && !update.getMessage().getNewChatMembers().isEmpty()) {
                 sendWelcomeMessage();
             }
             if(update.getMessage().getReplyToMessage() != null && sentMessages.containsKey(update.getMessage().getReplyToMessage().getMessageId())) {
-                forwardReply(update);
+                forwardReply(update, update.getMessage().getFrom().getFirstName());
             }
         }
     }
@@ -94,8 +92,8 @@ public class ParrotBot implements SpringLongPollingBot, LongPollingSingleThreadU
         }
     }
 
-    private void forwardText(Update update, String userName) {
-        String nym = NymGenerator.getNym(userName);
+    private void forwardText(Update update, String userId) {
+        String nym = NymGenerator.getNym(userId);
         if(bannedNyms.contains(nym)) {
             sendBannedMessage(update.getMessage().getChatId());
             return;
@@ -123,8 +121,8 @@ public class ParrotBot implements SpringLongPollingBot, LongPollingSingleThreadU
         }
     }
 
-    private void forwardPhoto(Update update, String userName) {
-        String nym = NymGenerator.getNym(userName);
+    private void forwardPhoto(Update update, String userId) {
+        String nym = NymGenerator.getNym(userId);
         if(bannedNyms.contains(nym)) {
             sendBannedMessage(update.getMessage().getChatId());
             return;
@@ -170,12 +168,12 @@ public class ParrotBot implements SpringLongPollingBot, LongPollingSingleThreadU
         }
     }
 
-    private void forwardReply(Update update) {
+    private void forwardReply(Update update, String userName) {
         ForwardedMessage forwardedMessage = sentMessages.get(update.getMessage().getReplyToMessage().getMessageId());
 
         if(update.getMessage().hasText()) {
             SendMessage replyMessage = SendMessage.builder()
-                    .text(update.getMessage().getText())
+                    .text(userName + ": " + update.getMessage().getText())
                     .replyToMessageId(forwardedMessage.messageId())
                     .chatId(forwardedMessage.chatId()).build();
 
@@ -190,7 +188,7 @@ public class ParrotBot implements SpringLongPollingBot, LongPollingSingleThreadU
             InputFile inputFile = new InputFile(photoSize.getFileId());
             SendPhoto replyPhoto = SendPhoto.builder()
                     .photo(inputFile)
-                    .caption(update.getMessage().getCaption())
+                    .caption(update.getMessage().getCaption() == null ? "From " + userName : userName + ": " + update.getMessage().getCaption())
                     .replyToMessageId(forwardedMessage.messageId())
                     .chatId(forwardedMessage.chatId()).build();
 
