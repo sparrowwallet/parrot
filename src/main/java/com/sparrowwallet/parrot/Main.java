@@ -16,6 +16,12 @@ public class Main {
             System.exit(1);
         }
 
+        String botUserName = System.getenv("PARROT_BOT_USERNAME");
+        if(botUserName == null) {
+            System.err.println("PARROT_BOT_USERNAME environment variable not set");
+            System.exit(1);
+        }
+
         String groupId = System.getenv("PARROT_GROUP_ID");
         if(groupId == null) {
             System.err.println("PARROT_GROUP_ID environment variable not set");
@@ -23,7 +29,7 @@ public class Main {
         }
 
         try(TelegramBotsLongPollingApplication botsApplication = new TelegramBotsLongPollingApplication()) {
-            botsApplication.registerBot(botToken, new ParrotBot(botToken, groupId));
+            botsApplication.registerBot(botToken, new ParrotBot(botToken, botUserName, groupId));
         } catch(Exception e) {
             log.error("Failed to register bot", e);
         }
