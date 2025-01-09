@@ -34,6 +34,7 @@ public class ParrotBot implements SpringLongPollingBot, LongPollingSingleThreadU
     private final RateLimiter rateLimiter;
     private final Map<String, List<Integer>> sentNymMessages;
     private final Map<Integer, ForwardedMessage> sentMessages;
+    private final Map<Integer, Integer> sentReplies;
     private final Set<String> bannedNyms;
     private String groupName;
 
@@ -42,6 +43,7 @@ public class ParrotBot implements SpringLongPollingBot, LongPollingSingleThreadU
         this.rateLimiter = new RateLimiter(5, 60 * 1000);
         this.sentNymMessages = new HashMap<>();
         this.sentMessages = new HashMap<>();
+        this.sentReplies = new HashMap<>();
         this.bannedNyms = new HashSet<>();
     }
 
@@ -67,34 +69,7 @@ public class ParrotBot implements SpringLongPollingBot, LongPollingSingleThreadU
                 sendWelcomeMessage();
             }
             if(update.getMessage().getReplyToMessage() != null && sentMessages.containsKey(update.getMessage().getReplyToMessage().getMessageId())) {
-                ForwardedMessage forwardedMessage = sentMessages.get(update.getMessage().getReplyToMessage().getMessageId());
-
-                if(update.getMessage().hasText()) {
-                    SendMessage replyMessage = SendMessage.builder()
-                            .text(update.getMessage().getText())
-                            .replyToMessageId(forwardedMessage.messageId())
-                            .chatId(forwardedMessage.chatId()).build();
-
-                    try {
-                        telegramClient.execute(replyMessage);
-                    } catch(TelegramApiException e) {
-                        log.error("Error sending reply to forwarded message", e);
-                    }
-                } else if(update.getMessage().hasPhoto()) {
-                    PhotoSize photoSize = update.getMessage().getPhoto().getFirst();
-                    InputFile inputFile = new InputFile(photoSize.getFileId());
-                    SendPhoto replyPhoto = SendPhoto.builder()
-                            .photo(inputFile)
-                            .caption(update.getMessage().getCaption())
-                            .replyToMessageId(forwardedMessage.messageId())
-                            .chatId(getGroupId()).build();
-
-                    try {
-                        telegramClient.execute(replyPhoto);
-                    } catch(TelegramApiException e) {
-                        log.error("Error sending reply to forwarded message", e);
-                    }
-                }
+                forwardReply(update);
             }
         }
     }
@@ -106,7 +81,15 @@ public class ParrotBot implements SpringLongPollingBot, LongPollingSingleThreadU
             return;
         }
 
-        SendMessage sendMessage = new SendMessage(getGroupId(), nym + ": " + update.getMessage().getText());
+        Integer replyToMessageId = null;
+        if(update.getMessage().getReplyToMessage() != null && sentReplies.containsKey(update.getMessage().getReplyToMessage().getMessageId())) {
+            replyToMessageId = sentReplies.get(update.getMessage().getReplyToMessage().getMessageId());
+        }
+
+        SendMessage sendMessage = SendMessage.builder()
+                .text(nym + ": " + update.getMessage().getText())
+                .replyToMessageId(replyToMessageId)
+                .chatId(getGroupId()).build();
 
         try {
             Message sentMessage = telegramClient.execute(sendMessage);
@@ -125,10 +108,18 @@ public class ParrotBot implements SpringLongPollingBot, LongPollingSingleThreadU
             return;
         }
 
+        Integer replyToMessageId = null;
+        if(update.getMessage().getReplyToMessage() != null && sentReplies.containsKey(update.getMessage().getReplyToMessage().getMessageId())) {
+            replyToMessageId = sentReplies.get(update.getMessage().getReplyToMessage().getMessageId());
+        }
+
         PhotoSize photoSize = update.getMessage().getPhoto().getFirst();
         InputFile inputFile = new InputFile(photoSize.getFileId());
-        SendPhoto sendPhoto = new SendPhoto(getGroupId(), inputFile);
-        sendPhoto.setCaption(update.getMessage().getCaption() == null ? "From " + nym : nym + ": " + update.getMessage().getCaption());
+        SendPhoto sendPhoto = SendPhoto.builder()
+                .photo(inputFile)
+                .caption(update.getMessage().getCaption() == null ? "From " + nym : nym + ": " + update.getMessage().getCaption())
+                .replyToMessageId(replyToMessageId)
+                .chatId(getGroupId()).build();
 
         try {
             Message sentMessage = telegramClient.execute(sendPhoto);
@@ -158,6 +149,39 @@ public class ParrotBot implements SpringLongPollingBot, LongPollingSingleThreadU
             telegramClient.execute(sendMessage);
         } catch(TelegramApiException e) {
             log.error("Error sending forwarded confirmation message", e);
+        }
+    }
+
+    private void forwardReply(Update update) {
+        ForwardedMessage forwardedMessage = sentMessages.get(update.getMessage().getReplyToMessage().getMessageId());
+
+        if(update.getMessage().hasText()) {
+            SendMessage replyMessage = SendMessage.builder()
+                    .text(update.getMessage().getText())
+                    .replyToMessageId(forwardedMessage.messageId())
+                    .chatId(forwardedMessage.chatId()).build();
+
+            try {
+                Message sentMessage = telegramClient.execute(replyMessage);
+                sentReplies.put(sentMessage.getMessageId(), update.getMessage().getMessageId());
+            } catch(TelegramApiException e) {
+                log.error("Error sending reply to forwarded message", e);
+            }
+        } else if(update.getMessage().hasPhoto()) {
+            PhotoSize photoSize = update.getMessage().getPhoto().getFirst();
+            InputFile inputFile = new InputFile(photoSize.getFileId());
+            SendPhoto replyPhoto = SendPhoto.builder()
+                    .photo(inputFile)
+                    .caption(update.getMessage().getCaption())
+                    .replyToMessageId(forwardedMessage.messageId())
+                    .chatId(getGroupId()).build();
+
+            try {
+                Message sentMessage = telegramClient.execute(replyPhoto);
+                sentReplies.put(sentMessage.getMessageId(), update.getMessage().getMessageId());
+            } catch(TelegramApiException e) {
+                log.error("Error sending reply to forwarded message", e);
+            }
         }
     }
 
