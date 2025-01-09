@@ -62,7 +62,7 @@ public class ParrotBot implements SpringLongPollingBot, LongPollingSingleThreadU
             } else if(update.getMessage().hasPhoto()) {
                 forwardPhoto(update, userName);
             }
-        } else if(update.hasMessage() && update.getMessage().getChat().isGroupChat()) {
+        } else if(update.hasMessage() && update.getMessage().getChat().isSuperGroupChat()) {
             if(update.getMessage().getNewChatMembers() != null && !update.getMessage().getNewChatMembers().isEmpty()) {
                 sendWelcomeMessage();
             }
