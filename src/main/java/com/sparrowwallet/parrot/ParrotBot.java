@@ -58,6 +58,8 @@ public class ParrotBot implements SpringLongPollingBot, LongPollingSingleThreadU
                     banNym(update.getMessage().getChatId(), update.getMessage().getText().substring(5));
                 } else if(update.getMessage().getText().startsWith("/unban ") && isGroupAdmin(update.getMessage().getFrom().getId())) {
                     unbanNym(update.getMessage().getChatId(), update.getMessage().getText().substring(7));
+                } else if(update.getMessage().getText().startsWith("/start")) {
+                    sendStartMessage(update);
                 } else {
                     forwardText(update, userName);
                 }
@@ -71,6 +73,21 @@ public class ParrotBot implements SpringLongPollingBot, LongPollingSingleThreadU
             if(update.getMessage().getReplyToMessage() != null && sentMessages.containsKey(update.getMessage().getReplyToMessage().getMessageId())) {
                 forwardReply(update);
             }
+        }
+    }
+
+    private void sendStartMessage(Update update) {
+        String groupName = getGroupName();
+
+        SendMessage sendMessage = SendMessage.builder()
+                .chatId(update.getMessage().getChatId())
+                .text("Welcome to " + getBotUserName() + ". Use this bot to send messages pseudonymously to " + groupName + ". " +
+                        "Any message or image you send to the bot will be forwarded to the group. " +
+                        "In turn, any replies to your message will be forwarded here, and you can also reply to them here to stay anonymous.").build();
+        try {
+            telegramClient.execute(sendMessage);
+        } catch(TelegramApiException e) {
+            log.error("Error sending start message", e);
         }
     }
 
@@ -95,7 +112,9 @@ public class ParrotBot implements SpringLongPollingBot, LongPollingSingleThreadU
             Message sentMessage = telegramClient.execute(sendMessage);
             sentNymMessages.computeIfAbsent(nym, _ -> new ArrayList<>()).add(sentMessage.getMessageId());
             sentMessages.put(sentMessage.getMessageId(), new ForwardedMessage(update.getMessage().getChatId(), update.getMessage().getMessageId()));
-            sendForwardConfirmation(update.getMessage().getChatId(), false);
+            if(replyToMessageId == null) {
+                sendForwardConfirmation(update.getMessage().getChatId(), false);
+            }
         } catch(TelegramApiException e) {
             log.error("Error forwarding message", e);
         }
@@ -125,26 +144,22 @@ public class ParrotBot implements SpringLongPollingBot, LongPollingSingleThreadU
             Message sentMessage = telegramClient.execute(sendPhoto);
             sentNymMessages.computeIfAbsent(nym, _ -> new ArrayList<>()).add(sentMessage.getMessageId());
             sentMessages.put(sentMessage.getMessageId(), new ForwardedMessage(update.getMessage().getChatId(), update.getMessage().getMessageId()));
-            sendForwardConfirmation(update.getMessage().getChatId(), true);
+            if(replyToMessageId == null) {
+                sendForwardConfirmation(update.getMessage().getChatId(), true);
+            }
         } catch(TelegramApiException e) {
             log.error("Error forwarding photo", e);
         }
     }
 
     private void sendForwardConfirmation(Long chatId, boolean photo) {
-        if(groupName == null) {
-            try {
-                GetChat getChat = new GetChat(getGroupId());
-                Chat chat = telegramClient.execute(getChat);
-                groupName = chat.getTitle();
-            } catch(TelegramApiException e) {
-                log.error("Error getting group name", e);
-            }
-        }
+        String groupName = getGroupName();
 
         SendMessage sendMessage = SendMessage.builder()
                 .chatId(chatId)
-                .text("Your " + (photo ? "image" : "message") + " has been forwarded to " + groupName).build();
+                .text("Your " + (photo ? "image" : "message") + " has been forwarded to " + groupName + ". " +
+                        "Any responses will be forwarded here, and you can reply to them here to continue the conversation. " +
+                        "Please be patient, this is a community group and not a paid service.").build();
         try {
             telegramClient.execute(sendMessage);
         } catch(TelegramApiException e) {
@@ -277,6 +292,20 @@ public class ParrotBot implements SpringLongPollingBot, LongPollingSingleThreadU
         } catch(TelegramApiException e) {
             log.error("Error sending ban confirmation message", e);
         }
+    }
+
+    private String getGroupName() {
+        if(groupName == null) {
+            try {
+                GetChat getChat = new GetChat(getGroupId());
+                Chat chat = telegramClient.execute(getChat);
+                groupName = chat.getUserName();
+            } catch(TelegramApiException e) {
+                log.error("Error getting group name", e);
+            }
+        }
+
+        return groupName;
     }
 
     @Override
