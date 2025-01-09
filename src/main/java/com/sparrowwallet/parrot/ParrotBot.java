@@ -81,7 +81,7 @@ public class ParrotBot implements SpringLongPollingBot, LongPollingSingleThreadU
 
         SendMessage sendMessage = SendMessage.builder()
                 .chatId(update.getMessage().getChatId())
-                .text("Welcome to " + getBotUserName() + ". Use this bot to send messages pseudonymously to " + groupName + ". " +
+                .text("Welcome to " + getBotUserName() + ". Use this bot to send messages pseudonymously to @" + groupName + ". " +
                         "Any message or image you send to the bot will be forwarded to the group. " +
                         "In turn, any replies to your message will be forwarded here, and you can also reply to them here to stay anonymous.").build();
         try {
@@ -157,7 +157,7 @@ public class ParrotBot implements SpringLongPollingBot, LongPollingSingleThreadU
 
         SendMessage sendMessage = SendMessage.builder()
                 .chatId(chatId)
-                .text("Your " + (photo ? "image" : "message") + " has been forwarded to " + groupName + ". " +
+                .text("Your " + (photo ? "image" : "message") + " has been forwarded to @" + groupName + ". " +
                         "Any responses will be forwarded here, and you can reply to them here to continue the conversation. " +
                         "Please be patient, this is a community group and not a paid service.").build();
         try {
