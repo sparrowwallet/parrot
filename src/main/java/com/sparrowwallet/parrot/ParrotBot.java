@@ -1,5 +1,6 @@
 package com.sparrowwallet.parrot;
 
+import com.sparrowwallet.parrot.store.Store;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
@@ -30,21 +31,15 @@ public class ParrotBot implements SpringLongPollingBot, LongPollingSingleThreadU
     public static final String PARROT_GROUP_ID = "PARROT_GROUP_ID";
     public static final String PARROT_BOT_USERNAME = "PARROT_BOT_USERNAME";
 
+    private final Store store;
     private final TelegramClient telegramClient;
     private final RateLimiter rateLimiter;
-    private final Map<String, List<Integer>> sentNymMessages;
-    private final Map<Integer, ForwardedMessage> sentMessages;
-    private final Map<Integer, Integer> sentReplies;
-    private final Set<String> bannedNyms;
     private String groupName;
 
-    public ParrotBot() {
+    public ParrotBot(Store store) {
+        this.store = store;
         this.telegramClient = new OkHttpTelegramClient(getBotToken());
         this.rateLimiter = new RateLimiter(5, 60 * 1000);
-        this.sentNymMessages = new HashMap<>();
-        this.sentMessages = new HashMap<>();
-        this.sentReplies = new HashMap<>();
-        this.bannedNyms = new HashSet<>();
     }
 
     @Override
@@ -71,7 +66,7 @@ public class ParrotBot implements SpringLongPollingBot, LongPollingSingleThreadU
             if(update.getMessage().getNewChatMembers() != null && !update.getMessage().getNewChatMembers().isEmpty()) {
                 sendWelcomeMessage();
             }
-            if(update.getMessage().getReplyToMessage() != null && sentMessages.containsKey(update.getMessage().getReplyToMessage().getMessageId())) {
+            if(update.getMessage().getReplyToMessage() != null && store.hasSentMessage(update.getMessage().getReplyToMessage().getMessageId())) {
                 forwardReply(update, update.getMessage().getFrom().getFirstName());
             }
         }
@@ -94,14 +89,14 @@ public class ParrotBot implements SpringLongPollingBot, LongPollingSingleThreadU
 
     private void forwardText(Update update, String userId) {
         String nym = NymGenerator.getNym(userId);
-        if(bannedNyms.contains(nym)) {
+        if(store.hasBannedNym(nym)) {
             sendBannedMessage(update.getMessage().getChatId());
             return;
         }
 
         Integer replyToMessageId = null;
-        if(update.getMessage().getReplyToMessage() != null && sentReplies.containsKey(update.getMessage().getReplyToMessage().getMessageId())) {
-            replyToMessageId = sentReplies.get(update.getMessage().getReplyToMessage().getMessageId());
+        if(update.getMessage().getReplyToMessage() != null && store.hasSentReply(update.getMessage().getReplyToMessage().getMessageId())) {
+            replyToMessageId = store.getSentReply(update.getMessage().getReplyToMessage().getMessageId());
         }
 
         SendMessage sendMessage = SendMessage.builder()
@@ -111,8 +106,8 @@ public class ParrotBot implements SpringLongPollingBot, LongPollingSingleThreadU
 
         try {
             Message sentMessage = telegramClient.execute(sendMessage);
-            sentNymMessages.computeIfAbsent(nym, _ -> new ArrayList<>()).add(sentMessage.getMessageId());
-            sentMessages.put(sentMessage.getMessageId(), new ForwardedMessage(update.getMessage().getChatId(), update.getMessage().getMessageId()));
+            store.addSentNymMessage(nym, sentMessage.getMessageId());
+            store.addSentMessage(sentMessage.getMessageId(), new ForwardedMessage(update.getMessage().getChatId(), update.getMessage().getMessageId()));
             if(replyToMessageId == null) {
                 sendForwardConfirmation(update.getMessage().getChatId(), false);
             }
@@ -123,14 +118,14 @@ public class ParrotBot implements SpringLongPollingBot, LongPollingSingleThreadU
 
     private void forwardPhoto(Update update, String userId) {
         String nym = NymGenerator.getNym(userId);
-        if(bannedNyms.contains(nym)) {
+        if(store.hasBannedNym(nym)) {
             sendBannedMessage(update.getMessage().getChatId());
             return;
         }
 
         Integer replyToMessageId = null;
-        if(update.getMessage().getReplyToMessage() != null && sentReplies.containsKey(update.getMessage().getReplyToMessage().getMessageId())) {
-            replyToMessageId = sentReplies.get(update.getMessage().getReplyToMessage().getMessageId());
+        if(update.getMessage().getReplyToMessage() != null && store.hasSentReply(update.getMessage().getReplyToMessage().getMessageId())) {
+            replyToMessageId = store.getSentReply(update.getMessage().getReplyToMessage().getMessageId());
         }
 
         PhotoSize photoSize = update.getMessage().getPhoto().getFirst();
@@ -143,8 +138,8 @@ public class ParrotBot implements SpringLongPollingBot, LongPollingSingleThreadU
 
         try {
             Message sentMessage = telegramClient.execute(sendPhoto);
-            sentNymMessages.computeIfAbsent(nym, _ -> new ArrayList<>()).add(sentMessage.getMessageId());
-            sentMessages.put(sentMessage.getMessageId(), new ForwardedMessage(update.getMessage().getChatId(), update.getMessage().getMessageId()));
+            store.addSentNymMessage(nym, sentMessage.getMessageId());
+            store.addSentMessage(sentMessage.getMessageId(), new ForwardedMessage(update.getMessage().getChatId(), update.getMessage().getMessageId()));
             if(replyToMessageId == null) {
                 sendForwardConfirmation(update.getMessage().getChatId(), true);
             }
@@ -169,7 +164,7 @@ public class ParrotBot implements SpringLongPollingBot, LongPollingSingleThreadU
     }
 
     private void forwardReply(Update update, String userName) {
-        ForwardedMessage forwardedMessage = sentMessages.get(update.getMessage().getReplyToMessage().getMessageId());
+        ForwardedMessage forwardedMessage = store.getSentMessage(update.getMessage().getReplyToMessage().getMessageId());
 
         if(update.getMessage().hasText()) {
             SendMessage replyMessage = SendMessage.builder()
@@ -179,7 +174,7 @@ public class ParrotBot implements SpringLongPollingBot, LongPollingSingleThreadU
 
             try {
                 Message sentMessage = telegramClient.execute(replyMessage);
-                sentReplies.put(sentMessage.getMessageId(), update.getMessage().getMessageId());
+                store.addSentReply(sentMessage.getMessageId(), update.getMessage().getMessageId());
             } catch(TelegramApiException e) {
                 log.error("Error sending reply to forwarded message", e);
             }
@@ -194,7 +189,7 @@ public class ParrotBot implements SpringLongPollingBot, LongPollingSingleThreadU
 
             try {
                 Message sentMessage = telegramClient.execute(replyPhoto);
-                sentReplies.put(sentMessage.getMessageId(), update.getMessage().getMessageId());
+                store.addSentReply(sentMessage.getMessageId(), update.getMessage().getMessageId());
             } catch(TelegramApiException e) {
                 log.error("Error sending reply to forwarded message", e);
             }
@@ -249,9 +244,9 @@ public class ParrotBot implements SpringLongPollingBot, LongPollingSingleThreadU
     }
 
     private void banNym(Long chatId, String nym) {
-        bannedNyms.add(nym);
+        store.addBannedNym(nym);
 
-        List<Integer> sentMessageIds = sentNymMessages.get(nym);
+        List<Integer> sentMessageIds = store.getSentNymMessageIds(nym);
         if(sentMessageIds != null) {
             try {
                 DeleteMessages deleteMessages = new DeleteMessages(getGroupId(), sentMessageIds);
@@ -272,7 +267,7 @@ public class ParrotBot implements SpringLongPollingBot, LongPollingSingleThreadU
     }
 
     private void unbanNym(Long chatId, String nym) {
-        bannedNyms.remove(nym);
+        store.removeBannedNym(nym);
 
         SendMessage sendMessage = SendMessage.builder()
                 .chatId(chatId)
@@ -326,6 +321,4 @@ public class ParrotBot implements SpringLongPollingBot, LongPollingSingleThreadU
     public String getBotUserName() {
         return System.getenv(PARROT_BOT_USERNAME);
     }
-
-    private record ForwardedMessage(Long chatId, Integer messageId) {}
 }

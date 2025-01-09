@@ -1,0 +1,2 @@
+store:
+  implementation: javaStore
