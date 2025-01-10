@@ -253,7 +253,7 @@ public class ParrotBot implements SpringLongPollingBot, LongPollingSingleThreadU
             try {
                 Boolean result = telegramClient.execute(restrictChatMember); // Telegram will lift restrictions automatically
                 if(result == null || !result) {
-                    log.error("Bot does not have permission to restrict new user, add ban permission");
+                    log.error("Bot does not have permission to restrict new users, add Ban Users permission");
                 }
             } catch(Exception e) {
                 log.error("Error restricting new user chat for cooldown period", e);
@@ -297,7 +297,10 @@ public class ParrotBot implements SpringLongPollingBot, LongPollingSingleThreadU
         if(sentMessageIds != null) {
             try {
                 DeleteMessages deleteMessages = new DeleteMessages(getGroupId(), sentMessageIds);
-                telegramClient.execute(deleteMessages);
+                Boolean result = telegramClient.execute(deleteMessages);
+                if(result == null || !result) {
+                    log.error("Bot does not have permission to delete messages from banned bym, add Delete Messages permission");
+                }
             } catch(TelegramApiException e) {
                 log.error("Error deleting banned nym messages", e);
             }
