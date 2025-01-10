@@ -65,10 +65,10 @@ public class ParrotBot implements SpringLongPollingBot, LongPollingSingleThreadU
             }
         } else if(update.hasMessage() && update.getMessage().getChat().isSuperGroupChat()) {
             if(update.getMessage().getNewChatMembers() != null && !update.getMessage().getNewChatMembers().isEmpty()) {
+                sendWelcomeMessage();
                 for(User user : update.getMessage().getNewChatMembers()) {
                     restrictNewUser(user.getId());
                 }
-                sendWelcomeMessage();
             }
             if(update.getMessage().getReplyToMessage() != null && store.hasSentMessage(update.getMessage().getReplyToMessage().getMessageId())) {
                 forwardReply(update, update.getMessage().getFrom().getFirstName());
@@ -239,7 +239,6 @@ public class ParrotBot implements SpringLongPollingBot, LongPollingSingleThreadU
                     .canSendVideos(false)
                     .canSendDocuments(false)
                     .canSendVoiceNotes(false)
-                    .canSendVideoNotes(false)
                     .canSendOtherMessages(false)
                     .canAddWebPagePreviews(false).build();
 

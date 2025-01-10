@@ -31,3 +31,6 @@ Then run with
 java -jar build/libs/parrot-1.0.jar
 ```
 
+## Configuration
+
+You will need to add the bot to the Telegram group, and make it an admin of the group to ensure it has the necessary permissions to forward messages.
