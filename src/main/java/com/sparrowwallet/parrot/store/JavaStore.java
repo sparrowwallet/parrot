@@ -13,6 +13,7 @@ public class JavaStore implements Store {
     private final Map<Integer, ForwardedMessage> sentMessages = new HashMap<>();
     private final Map<Integer, Integer> sentReplies = new HashMap<>();
     private final Set<String> bannedNyms = new HashSet<>();
+    private final Map<Long, Long> newUserTimestamps = new HashMap<>();
 
     @Override
     public void addSentNymMessage(String nym, Integer messageId) {
@@ -67,5 +68,20 @@ public class JavaStore implements Store {
     @Override
     public boolean removeBannedNym(String nym) {
         return bannedNyms.remove(nym);
+    }
+
+    @Override
+    public void newUserAdded(Long userId, Long timestamp) {
+        newUserTimestamps.put(userId, timestamp);
+    }
+
+    @Override
+    public Long getNewUserTimestamp(Long userId) {
+        return newUserTimestamps.get(userId);
+    }
+
+    @Override
+    public void close() {
+        //nothing required
     }
 }

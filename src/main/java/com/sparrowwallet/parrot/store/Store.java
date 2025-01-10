@@ -2,9 +2,10 @@ package com.sparrowwallet.parrot.store;
 
 import com.sparrowwallet.parrot.ForwardedMessage;
 
+import java.io.Closeable;
 import java.util.List;
 
-public interface Store {
+public interface Store extends Closeable {
     void addSentNymMessage(String nym, Integer messageId);
     List<Integer> getSentNymMessageIds(String nym);
     void addSentMessage(Integer messageId, ForwardedMessage forwardedMessage);
@@ -16,4 +17,6 @@ public interface Store {
     void addBannedNym(String nym);
     boolean hasBannedNym(String nym);
     boolean removeBannedNym(String nym);
+    void newUserAdded(Long userId, Long timestamp);
+    Long getNewUserTimestamp(Long userId);
 }

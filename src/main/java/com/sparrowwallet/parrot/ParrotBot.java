@@ -1,6 +1,7 @@
 package com.sparrowwallet.parrot;
 
 import com.sparrowwallet.parrot.store.Store;
+import jakarta.annotation.PreDestroy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
@@ -320,5 +321,11 @@ public class ParrotBot implements SpringLongPollingBot, LongPollingSingleThreadU
 
     public String getBotUserName() {
         return System.getenv(PARROT_BOT_USERNAME);
+    }
+
+    @PreDestroy
+    public void shutdown() throws Exception {
+        log.info("Shutting down");
+        store.close();
     }
 }
