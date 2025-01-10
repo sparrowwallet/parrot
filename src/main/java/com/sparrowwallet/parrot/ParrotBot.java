@@ -251,8 +251,11 @@ public class ParrotBot implements SpringLongPollingBot, LongPollingSingleThreadU
                     .untilDate(untilDate).build();
 
             try {
-                telegramClient.execute(restrictChatMember); // Telegram will lift restrictions automatically
-            } catch (Exception e) {
+                Boolean result = telegramClient.execute(restrictChatMember); // Telegram will lift restrictions automatically
+                if(result == null || !result) {
+                    log.error("Bot does not have permission to restrict new user, add ban permission");
+                }
+            } catch(Exception e) {
                 log.error("Error restricting new user chat for cooldown period", e);
             }
         }

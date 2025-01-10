@@ -34,3 +34,11 @@ java -jar build/libs/parrot-1.0.jar
 ## Configuration
 
 You will need to add the bot to the Telegram group, and make it an admin of the group to ensure it has the necessary permissions to forward messages.
+You will need to give it the Delete Messages permission to delete messages from banned users.
+If you are using the cooldown period feature, the bot will also need the Ban Users permission, and the Manage Video Chats.
+
+## Usage
+
+The bot should just work, 
+
+Admins of the group can 
