@@ -40,6 +40,7 @@ If you are using the cooldown period feature, the bot will also need the Ban Use
 ## Usage
 
 The bot should just work, forwarding messages back and forth, displaying the welcome message, and restricting users during the cooldown period if configured.
+The bot currently implements rate limiting, allowing 5 messages every minute.
 
 Admins of the group can also ban and unban users. Banning users will also delete all messages from them forwarded from the bot to the group.
 To ban a user, in the bot use the command `/ban #NymName`. To unban a user, use `/unban #NymName`.
