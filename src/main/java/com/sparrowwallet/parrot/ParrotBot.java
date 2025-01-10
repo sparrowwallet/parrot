@@ -11,12 +11,11 @@ import org.telegram.telegrambots.longpolling.starter.SpringLongPollingBot;
 import org.telegram.telegrambots.longpolling.util.LongPollingSingleThreadUpdateConsumer;
 import org.telegram.telegrambots.meta.api.methods.groupadministration.GetChat;
 import org.telegram.telegrambots.meta.api.methods.groupadministration.GetChatAdministrators;
+import org.telegram.telegrambots.meta.api.methods.groupadministration.RestrictChatMember;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.methods.send.SendPhoto;
 import org.telegram.telegrambots.meta.api.methods.updatingmessages.DeleteMessages;
-import org.telegram.telegrambots.meta.api.objects.InputFile;
-import org.telegram.telegrambots.meta.api.objects.PhotoSize;
-import org.telegram.telegrambots.meta.api.objects.Update;
+import org.telegram.telegrambots.meta.api.objects.*;
 import org.telegram.telegrambots.meta.api.objects.chat.Chat;
 import org.telegram.telegrambots.meta.api.objects.chatmember.ChatMember;
 import org.telegram.telegrambots.meta.api.objects.message.Message;
@@ -31,6 +30,7 @@ public class ParrotBot implements SpringLongPollingBot, LongPollingSingleThreadU
     public static final String PARROT_BOT_TOKEN = "PARROT_BOT_TOKEN";
     public static final String PARROT_GROUP_ID = "PARROT_GROUP_ID";
     public static final String PARROT_BOT_USERNAME = "PARROT_BOT_USERNAME";
+    public static final String PARROT_COOLDOWN_PERIOD_MINUTES = "PARROT_COOLDOWN_PERIOD_MINUTES";
 
     private final Store store;
     private final TelegramClient telegramClient;
@@ -65,6 +65,9 @@ public class ParrotBot implements SpringLongPollingBot, LongPollingSingleThreadU
             }
         } else if(update.hasMessage() && update.getMessage().getChat().isSuperGroupChat()) {
             if(update.getMessage().getNewChatMembers() != null && !update.getMessage().getNewChatMembers().isEmpty()) {
+                for(User user : update.getMessage().getNewChatMembers()) {
+                    restrictNewUser(user.getId());
+                }
                 sendWelcomeMessage();
             }
             if(update.getMessage().getReplyToMessage() != null && store.hasSentMessage(update.getMessage().getReplyToMessage().getMessageId())) {
@@ -201,9 +204,19 @@ public class ParrotBot implements SpringLongPollingBot, LongPollingSingleThreadU
         String welcomeText = """
                 ⚠️WARNING: There are scammers impersonating admins in this chat ⚠️
                 
-                If you are a new user, you are STRONGLY RECOMMENDED to send messages anonymously via [BOT_NAME].
-                Any messages sent to the bot will be forwarded here under a pseudonym.
+                If you are a new user, you are STRONGLY RECOMMENDED to send messages anonymously via [BOT_NAME]. Any messages sent to the bot will be forwarded here under a pseudonym.
                 
+                """;
+
+        Integer cooldownPeriodMinutes = getCooldownPeriodMinutes();
+        if(cooldownPeriodMinutes != null && cooldownPeriodMinutes > 0) {
+            welcomeText += """
+                To ensure you have read and considered this advice, you will not be able to post directly to this chat for [COOLDOWN_PERIOD]. You can however ask questions using [BOT_NAME] during this period.
+                
+                """.replace("[COOLDOWN_PERIOD]", cooldownPeriodMinutes > 1 ? cooldownPeriodMinutes + " minutes" : cooldownPeriodMinutes + "minute");
+        }
+
+        welcomeText += """
                 If you ignore this advice, expect to be contacted by several scammers impersonating admins. YOU HAVE BEEN WARNED.
                 """;
 
@@ -212,6 +225,37 @@ public class ParrotBot implements SpringLongPollingBot, LongPollingSingleThreadU
             telegramClient.execute(welcomeMessage);
         } catch(TelegramApiException e) {
             log.error("Error sending welcome message", e);
+        }
+    }
+
+    private void restrictNewUser(long userId) {
+        Integer cooldownPeriodMinutes = getCooldownPeriodMinutes();
+        if(cooldownPeriodMinutes != null && cooldownPeriodMinutes > 0) {
+            ChatPermissions noSendPermissions = ChatPermissions.builder()
+                    .canSendMessages(false)
+                    .canSendPhotos(false)
+                    .canSendPolls(false)
+                    .canSendAudios(false)
+                    .canSendVideos(false)
+                    .canSendDocuments(false)
+                    .canSendVoiceNotes(false)
+                    .canSendVideoNotes(false)
+                    .canSendOtherMessages(false)
+                    .canAddWebPagePreviews(false).build();
+
+            int untilDate = (int) (System.currentTimeMillis() / 1000) + (cooldownPeriodMinutes * 60);
+
+            RestrictChatMember restrictChatMember = RestrictChatMember.builder()
+                    .chatId(getGroupId())
+                    .userId(userId)
+                    .permissions(noSendPermissions)
+                    .untilDate(untilDate).build();
+
+            try {
+                telegramClient.execute(restrictChatMember); // Telegram will lift restrictions automatically
+            } catch (Exception e) {
+                log.error("Error restricting new user chat for cooldown period", e);
+            }
         }
     }
 
@@ -321,6 +365,19 @@ public class ParrotBot implements SpringLongPollingBot, LongPollingSingleThreadU
 
     public String getBotUserName() {
         return System.getenv(PARROT_BOT_USERNAME);
+    }
+
+    public Integer getCooldownPeriodMinutes() {
+        String strCooldown = System.getenv(PARROT_COOLDOWN_PERIOD_MINUTES);
+        if(strCooldown != null) {
+            try {
+                return Integer.parseInt(strCooldown);
+            } catch(NumberFormatException e) {
+                return null;
+            }
+        }
+
+        return null;
     }
 
     @PreDestroy
