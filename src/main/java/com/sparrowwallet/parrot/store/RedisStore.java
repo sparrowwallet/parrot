@@ -97,7 +97,7 @@ public class RedisStore implements Store {
     @Override
     public boolean removeBannedNym(String nym) {
         RedisCommands<String, String> sync = connection.sync();
-        sync.set("nymBanned:" + nym, "false");
+        sync.del("nymBanned:" + nym);
         return true;
     }
 
