@@ -31,6 +31,7 @@ public class ParrotBot implements SpringLongPollingBot, LongPollingSingleThreadU
     public static final String PARROT_GROUP_ID = "PARROT_GROUP_ID";
     public static final String PARROT_BOT_USERNAME = "PARROT_BOT_USERNAME";
     public static final String PARROT_COOLDOWN_PERIOD_MINUTES = "PARROT_COOLDOWN_PERIOD_MINUTES";
+    public static final String KICKED = "kicked";
 
     private final Store store;
     private final TelegramClient telegramClient;
@@ -72,6 +73,15 @@ public class ParrotBot implements SpringLongPollingBot, LongPollingSingleThreadU
             }
             if(update.getMessage().getReplyToMessage() != null && store.hasSentMessage(update.getMessage().getReplyToMessage().getMessageId())) {
                 forwardReply(update, update.getMessage().getFrom().getFirstName());
+            }
+        }
+        if(update.hasChatMember() && update.getChatMember().getChat().isSuperGroupChat()) {
+            if(!KICKED.equals(update.getChatMember().getOldChatMember().getStatus()) && KICKED.equals(update.getChatMember().getNewChatMember().getStatus())) {
+                String nym = NymGenerator.getNym(update.getChatMember().getFrom().getId().toString());
+                banNym(null, nym);
+            } else if(KICKED.equals(update.getChatMember().getOldChatMember().getStatus()) && !KICKED.equals(update.getChatMember().getNewChatMember().getStatus())) {
+                String nym = NymGenerator.getNym(update.getChatMember().getFrom().getId().toString());
+                unbanNym(null, nym);
             }
         }
     }
@@ -306,26 +316,30 @@ public class ParrotBot implements SpringLongPollingBot, LongPollingSingleThreadU
             }
         }
 
-        SendMessage sendMessage = SendMessage.builder()
-                .chatId(chatId)
-                .text(nym + " has been banned, and all forwarded messages have been deleted").build();
-        try {
-            telegramClient.execute(sendMessage);
-        } catch(TelegramApiException e) {
-            log.error("Error sending ban confirmation message", e);
+        if(chatId != null) {
+            SendMessage sendMessage = SendMessage.builder()
+                    .chatId(chatId)
+                    .text(nym + " has been banned, and all forwarded messages have been deleted").build();
+            try {
+                telegramClient.execute(sendMessage);
+            } catch(TelegramApiException e) {
+                log.error("Error sending ban confirmation message", e);
+            }
         }
     }
 
     private void unbanNym(Long chatId, String nym) {
         store.removeBannedNym(nym);
 
-        SendMessage sendMessage = SendMessage.builder()
-                .chatId(chatId)
-                .text(nym + " has been unbanned").build();
-        try {
-            telegramClient.execute(sendMessage);
-        } catch(TelegramApiException e) {
-            log.error("Error sending unban confirmation message", e);
+        if(chatId != null) {
+            SendMessage sendMessage = SendMessage.builder()
+                    .chatId(chatId)
+                    .text(nym + " has been unbanned").build();
+            try {
+                telegramClient.execute(sendMessage);
+            } catch(TelegramApiException e) {
+                log.error("Error sending unban confirmation message", e);
+            }
         }
     }
 
