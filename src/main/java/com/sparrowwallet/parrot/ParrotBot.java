@@ -77,10 +77,10 @@ public class ParrotBot implements SpringLongPollingBot, LongPollingSingleThreadU
         }
         if(update.hasChatMember() && update.getChatMember().getChat().isSuperGroupChat()) {
             if(!KICKED.equals(update.getChatMember().getOldChatMember().getStatus()) && KICKED.equals(update.getChatMember().getNewChatMember().getStatus())) {
-                String nym = NymGenerator.getNym(update.getChatMember().getFrom().getId().toString());
+                String nym = NymGenerator.getNym(update.getChatMember().getNewChatMember().getUser().getId().toString());
                 banNym(null, nym);
             } else if(KICKED.equals(update.getChatMember().getOldChatMember().getStatus()) && !KICKED.equals(update.getChatMember().getNewChatMember().getStatus())) {
-                String nym = NymGenerator.getNym(update.getChatMember().getFrom().getId().toString());
+                String nym = NymGenerator.getNym(update.getChatMember().getNewChatMember().getUser().getId().toString());
                 unbanNym(null, nym);
             }
         }
@@ -227,7 +227,7 @@ public class ParrotBot implements SpringLongPollingBot, LongPollingSingleThreadU
         }
 
         welcomeText += """
-                If you ignore this advice, expect to be contacted by several scammers impersonating admins. YOU HAVE BEEN WARNED.
+                If you ignore this advice, you may be contacted by scammers impersonating admins. YOU HAVE BEEN WARNED.
                 """;
 
         SendMessage welcomeMessage = new SendMessage(getGroupId(), welcomeText.replace("[BOT_NAME]", getBotUserName()));
