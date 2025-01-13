@@ -10,6 +10,7 @@ import java.util.*;
 @ConditionalOnProperty(name = "store.implementation", havingValue = "javaStore")
 public class JavaStore implements Store {
     private final Map<String, List<Integer>> sentNymMessages = new HashMap<>();
+    private final Map<Integer, Integer> forwardedMessages = new HashMap<>();
     private final Map<Integer, ForwardedMessage> sentMessages = new HashMap<>();
     private final Map<Integer, Integer> sentReplies = new HashMap<>();
     private final Set<String> bannedNyms = new HashSet<>();
@@ -23,6 +24,16 @@ public class JavaStore implements Store {
     @Override
     public List<Integer> getSentNymMessageIds(String nym) {
         return sentNymMessages.get(nym);
+    }
+
+    @Override
+    public void addForwardedMessage(Integer messageId, Integer forwardedMessageId) {
+        forwardedMessages.put(messageId, forwardedMessageId);
+    }
+
+    @Override
+    public Integer getForwardedMessageId(Integer messageId) {
+        return forwardedMessages.get(messageId);
     }
 
     @Override

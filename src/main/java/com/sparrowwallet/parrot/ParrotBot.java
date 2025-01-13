@@ -12,6 +12,7 @@ import org.telegram.telegrambots.longpolling.util.LongPollingSingleThreadUpdateC
 import org.telegram.telegrambots.meta.api.methods.groupadministration.GetChat;
 import org.telegram.telegrambots.meta.api.methods.groupadministration.GetChatAdministrators;
 import org.telegram.telegrambots.meta.api.methods.groupadministration.RestrictChatMember;
+import org.telegram.telegrambots.meta.api.methods.reactions.SetMessageReaction;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.methods.send.SendPhoto;
 import org.telegram.telegrambots.meta.api.methods.updatingmessages.DeleteMessages;
@@ -19,6 +20,8 @@ import org.telegram.telegrambots.meta.api.objects.*;
 import org.telegram.telegrambots.meta.api.objects.chat.Chat;
 import org.telegram.telegrambots.meta.api.objects.chatmember.ChatMember;
 import org.telegram.telegrambots.meta.api.objects.message.Message;
+import org.telegram.telegrambots.meta.api.objects.reactions.MessageReactionUpdated;
+import org.telegram.telegrambots.meta.api.objects.reactions.ReactionType;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 import org.telegram.telegrambots.meta.generics.TelegramClient;
 
@@ -64,6 +67,8 @@ public class ParrotBot implements SpringLongPollingBot, LongPollingSingleThreadU
             } else if(update.getMessage().hasPhoto()) {
                 forwardPhoto(update, userId.toString());
             }
+        } else if(update.getMessageReaction() != null && update.getMessage().getChat().isUserChat()) {
+            forwardReaction(update.getMessageReaction());
         } else if(update.hasMessage() && update.getMessage().getChat().isSuperGroupChat()) {
             if(update.getMessage().getNewChatMembers() != null && !update.getMessage().getNewChatMembers().isEmpty()) {
                 sendWelcomeMessage();
@@ -121,6 +126,7 @@ public class ParrotBot implements SpringLongPollingBot, LongPollingSingleThreadU
         try {
             Message sentMessage = telegramClient.execute(sendMessage);
             store.addSentNymMessage(nym, sentMessage.getMessageId());
+            store.addForwardedMessage(update.getMessage().getMessageId(), sentMessage.getMessageId());
             store.addSentMessage(sentMessage.getMessageId(), new ForwardedMessage(update.getMessage().getChatId(), update.getMessage().getMessageId()));
             if(replyToMessageId == null) {
                 sendForwardConfirmation(update.getMessage().getChatId(), false);
@@ -153,12 +159,33 @@ public class ParrotBot implements SpringLongPollingBot, LongPollingSingleThreadU
         try {
             Message sentMessage = telegramClient.execute(sendPhoto);
             store.addSentNymMessage(nym, sentMessage.getMessageId());
+            store.addForwardedMessage(update.getMessage().getMessageId(), sentMessage.getMessageId());
             store.addSentMessage(sentMessage.getMessageId(), new ForwardedMessage(update.getMessage().getChatId(), update.getMessage().getMessageId()));
             if(replyToMessageId == null) {
                 sendForwardConfirmation(update.getMessage().getChatId(), true);
             }
         } catch(TelegramApiException e) {
             log.error("Error forwarding photo", e);
+        }
+    }
+
+    private void forwardReaction(MessageReactionUpdated messageReactionUpdated) {
+        Integer forwardedMessageId = store.getForwardedMessageId(messageReactionUpdated.getMessageId());
+        if(forwardedMessageId != null) {
+            List<ReactionType> reactionTypes = new ArrayList<>(messageReactionUpdated.getNewReaction());
+            reactionTypes.removeAll(messageReactionUpdated.getOldReaction());
+
+            if(!reactionTypes.isEmpty()) {
+                SetMessageReaction setMessageReaction = SetMessageReaction.builder()
+                        .messageId(forwardedMessageId)
+                        .chatId(getGroupId())
+                        .reactionTypes(reactionTypes).build();
+                try {
+                    telegramClient.execute(setMessageReaction);
+                } catch(TelegramApiException e) {
+                    log.error("Error forwarding message reactions", e);
+                }
+            }
         }
     }
 

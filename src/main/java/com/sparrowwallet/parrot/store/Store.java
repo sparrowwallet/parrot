@@ -8,6 +8,8 @@ import java.util.List;
 public interface Store extends Closeable {
     void addSentNymMessage(String nym, Integer messageId);
     List<Integer> getSentNymMessageIds(String nym);
+    void addForwardedMessage(Integer messageId, Integer forwardedMessageId);
+    Integer getForwardedMessageId(Integer messageId);
     void addSentMessage(Integer messageId, ForwardedMessage forwardedMessage);
     boolean hasSentMessage(Integer messageId);
     ForwardedMessage getSentMessage(Integer messageId);

@@ -39,6 +39,19 @@ public class RedisStore implements Store {
     }
 
     @Override
+    public void addForwardedMessage(Integer messageId, Integer forwardedMessageId) {
+        RedisCommands<String, String> sync = connection.sync();
+        sync.set("fwdMsg:" + messageId.toString(), forwardedMessageId.toString());
+    }
+
+    @Override
+    public Integer getForwardedMessageId(Integer messageId) {
+        RedisCommands<String, String> sync = connection.sync();
+        String value = sync.get("fwdMsg:" + messageId);
+        return value == null ? null : Integer.parseInt(value);
+    }
+
+    @Override
     public void addSentMessage(Integer messageId, ForwardedMessage forwardedMessage) {
         RedisCommands<String, String> sync = connection.sync();
         sync.set("sentMsg:" + messageId.toString(), forwardedMessage.chatId() + ":" + forwardedMessage.messageId());

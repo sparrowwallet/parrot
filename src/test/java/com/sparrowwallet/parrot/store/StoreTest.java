@@ -27,6 +27,10 @@ public class StoreTest {
         Assertions.assertEquals(5, ids.get(4));
         Assertions.assertFalse(ids.contains(6));
 
+        store.addForwardedMessage(88, 44);
+        Assertions.assertEquals(44, store.getForwardedMessageId(88));
+        Assertions.assertNull(store.getForwardedMessageId(89));
+
         store.addSentMessage(1, new ForwardedMessage(500L, 2));
         store.addSentMessage(2, new ForwardedMessage(500L, 3));
 

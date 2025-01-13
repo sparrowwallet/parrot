@@ -28,6 +28,6 @@ public class ParrotBotConfiguration {
     }
 
     private List<String> getAllowedUpdates() {
-        return Arrays.asList("message", "edited_message", "chat_member");
+        return Arrays.asList("message", "edited_message", "chat_member", "message_reaction");
     }
 }
