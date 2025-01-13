@@ -16,6 +16,7 @@ import org.telegram.telegrambots.meta.api.methods.reactions.SetMessageReaction;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.methods.send.SendPhoto;
 import org.telegram.telegrambots.meta.api.methods.updatingmessages.DeleteMessages;
+import org.telegram.telegrambots.meta.api.methods.updatingmessages.EditMessageText;
 import org.telegram.telegrambots.meta.api.objects.*;
 import org.telegram.telegrambots.meta.api.objects.chat.Chat;
 import org.telegram.telegrambots.meta.api.objects.chatmember.ChatMember;
@@ -67,6 +68,8 @@ public class ParrotBot implements SpringLongPollingBot, LongPollingSingleThreadU
             } else if(update.getMessage().hasPhoto()) {
                 forwardPhoto(update, userId.toString());
             }
+        } else if(update.hasEditedMessage() && update.getEditedMessage().hasText() && update.getEditedMessage().getChat().isUserChat()) {
+            forwardEditedMessage(update.getEditedMessage());
         } else if(update.getMessageReaction() != null && update.getMessageReaction().getChat().isUserChat()) {
             forwardReaction(update.getMessageReaction());
         } else if(update.hasMessage() && update.getMessage().getChat().isSuperGroupChat()) {
@@ -166,6 +169,22 @@ public class ParrotBot implements SpringLongPollingBot, LongPollingSingleThreadU
             }
         } catch(TelegramApiException e) {
             log.error("Error forwarding photo", e);
+        }
+    }
+
+    private void forwardEditedMessage(Message editedMessage) {
+        Integer forwardedMessageId = store.getForwardedMessageId(editedMessage.getMessageId());
+        if(forwardedMessageId != null) {
+            EditMessageText editMessageText = EditMessageText.builder()
+                    .messageId(forwardedMessageId)
+                    .chatId(getGroupId())
+                    .text(editedMessage.getText()).build();
+
+            try {
+                telegramClient.execute(editMessageText);
+            } catch(TelegramApiException e) {
+                log.error("Error forwarding message edit", e);
+            }
         }
     }
 
