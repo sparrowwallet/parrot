@@ -350,7 +350,11 @@ public class ParrotBot implements SpringLongPollingBot, LongPollingSingleThreadU
         store.addBannedNym(nym);
 
         List<Integer> sentMessageIds = store.getSentNymMessageIds(nym);
-        if(sentMessageIds != null) {
+        if(sentMessageIds != null && !sentMessageIds.isEmpty()) {
+            if(sentMessageIds.size() > 100) {
+                sentMessageIds = new ArrayList<>(sentMessageIds.subList(sentMessageIds.size() - 100, sentMessageIds.size()));
+            }
+
             try {
                 DeleteMessages deleteMessages = new DeleteMessages(getGroupId(), sentMessageIds);
                 Boolean result = telegramClient.execute(deleteMessages);
