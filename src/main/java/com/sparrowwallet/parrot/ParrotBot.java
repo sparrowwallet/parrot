@@ -35,6 +35,8 @@ public class ParrotBot implements SpringLongPollingBot, LongPollingSingleThreadU
     public static final String PARROT_GROUP_ID = "PARROT_GROUP_ID";
     public static final String PARROT_BOT_USERNAME = "PARROT_BOT_USERNAME";
     public static final String PARROT_COOLDOWN_PERIOD_MINUTES = "PARROT_COOLDOWN_PERIOD_MINUTES";
+    public static final String MEMBER = "member";
+    public static final String LEFT = "left";
     public static final String KICKED = "kicked";
 
     private final Store store;
@@ -73,18 +75,15 @@ public class ParrotBot implements SpringLongPollingBot, LongPollingSingleThreadU
         } else if(update.getMessageReaction() != null && update.getMessageReaction().getChat().isUserChat()) {
             forwardReaction(update.getMessageReaction());
         } else if(update.hasMessage() && update.getMessage().getChat().isSuperGroupChat()) {
-            if(update.getMessage().getNewChatMembers() != null && !update.getMessage().getNewChatMembers().isEmpty()) {
-                sendWelcomeMessage();
-                for(User user : update.getMessage().getNewChatMembers()) {
-                    restrictNewUser(user.getId());
-                }
-            }
             if(update.getMessage().getReplyToMessage() != null && store.hasSentMessage(update.getMessage().getReplyToMessage().getMessageId())) {
                 forwardReply(update, update.getMessage().getFrom().getFirstName());
             }
         }
         if(update.hasChatMember() && update.getChatMember().getChat().isSuperGroupChat()) {
-            if(!KICKED.equals(update.getChatMember().getOldChatMember().getStatus()) && KICKED.equals(update.getChatMember().getNewChatMember().getStatus())) {
+            if(LEFT.equals(update.getChatMember().getOldChatMember().getStatus()) && MEMBER.equals(update.getChatMember().getNewChatMember().getStatus())) {
+                sendWelcomeMessage();
+                restrictNewUser(update.getChatMember().getFrom().getId());
+            } else if(!KICKED.equals(update.getChatMember().getOldChatMember().getStatus()) && KICKED.equals(update.getChatMember().getNewChatMember().getStatus())) {
                 String nym = NymGenerator.getNym(update.getChatMember().getNewChatMember().getUser().getId().toString());
                 banNym(null, nym);
             } else if(KICKED.equals(update.getChatMember().getOldChatMember().getStatus()) && !KICKED.equals(update.getChatMember().getNewChatMember().getStatus())) {
