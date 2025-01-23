@@ -44,6 +44,9 @@ public class ParrotBot implements SpringLongPollingBot, LongPollingSingleThreadU
     private final RateLimiter rateLimiter;
     private String groupName;
 
+    private static final long WELCOME_MESSAGE_TIMEOUT = 60 * 60 * 1000;
+    private final Map<Integer, Long> welcomeMessages = Collections.synchronizedMap(new HashMap<>());
+
     public ParrotBot(Store store) {
         this.store = store;
         this.telegramClient = new OkHttpTelegramClient(getBotToken());
@@ -83,6 +86,7 @@ public class ParrotBot implements SpringLongPollingBot, LongPollingSingleThreadU
             if(LEFT.equals(update.getChatMember().getOldChatMember().getStatus()) && MEMBER.equals(update.getChatMember().getNewChatMember().getStatus())) {
                 sendWelcomeMessage();
                 restrictNewUser(update.getChatMember().getFrom().getId());
+                deleteOldWelcomeMessages();
             } else if(!KICKED.equals(update.getChatMember().getOldChatMember().getStatus()) && KICKED.equals(update.getChatMember().getNewChatMember().getStatus())) {
                 String nym = NymGenerator.getNym(update.getChatMember().getNewChatMember().getUser().getId().toString());
                 banNym(null, nym);
@@ -277,9 +281,35 @@ public class ParrotBot implements SpringLongPollingBot, LongPollingSingleThreadU
 
         SendMessage welcomeMessage = new SendMessage(getGroupId(), welcomeText.replace("[BOT_NAME]", getBotUserName()));
         try {
-            telegramClient.execute(welcomeMessage);
+            Message sentMessage = telegramClient.execute(welcomeMessage);
+            welcomeMessages.put(sentMessage.getMessageId(), System.currentTimeMillis());
         } catch(TelegramApiException e) {
             log.error("Error sending welcome message", e);
+        }
+    }
+
+    private synchronized void deleteOldWelcomeMessages() {
+        long now = System.currentTimeMillis();
+        List<Integer> oldMessageIds = new ArrayList<>();
+        int i = 0;
+        for(Iterator<Integer> iter = welcomeMessages.keySet().iterator(); iter.hasNext() && i < 100; i++) {
+            Integer messageId = iter.next();
+            if(welcomeMessages.get(messageId) != null && (now - welcomeMessages.get(messageId) > WELCOME_MESSAGE_TIMEOUT)) {
+                oldMessageIds.add(messageId);
+                iter.remove();
+            }
+        }
+
+        if(!oldMessageIds.isEmpty()) {
+            try {
+                DeleteMessages deleteMessages = new DeleteMessages(getGroupId(), oldMessageIds);
+                Boolean result = telegramClient.execute(deleteMessages);
+                if(result == null || !result) {
+                    log.error("Bot does not have permission to delete old welcome messages, add Delete Messages permission");
+                }
+            } catch(TelegramApiException e) {
+                log.error("Error deleting old welcome messages", e);
+            }
         }
     }
 
