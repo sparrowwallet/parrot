@@ -20,6 +20,9 @@ import org.telegram.telegrambots.meta.api.methods.updatingmessages.EditMessageTe
 import org.telegram.telegrambots.meta.api.objects.*;
 import org.telegram.telegrambots.meta.api.objects.chat.Chat;
 import org.telegram.telegrambots.meta.api.objects.chatmember.ChatMember;
+import org.telegram.telegrambots.meta.api.objects.chatmember.ChatMemberBanned;
+import org.telegram.telegrambots.meta.api.objects.chatmember.ChatMemberLeft;
+import org.telegram.telegrambots.meta.api.objects.chatmember.ChatMemberRestricted;
 import org.telegram.telegrambots.meta.api.objects.message.Message;
 import org.telegram.telegrambots.meta.api.objects.reactions.MessageReactionUpdated;
 import org.telegram.telegrambots.meta.api.objects.reactions.ReactionType;
@@ -37,7 +40,6 @@ public class ParrotBot implements SpringLongPollingBot, LongPollingSingleThreadU
     public static final String PARROT_COOLDOWN_PERIOD_MINUTES = "PARROT_COOLDOWN_PERIOD_MINUTES";
     public static final String PARROT_NYM_SECRET = "PARROT_NYM_SECRET";
     public static final String MEMBER = "member";
-    public static final String LEFT = "left";
     public static final String KICKED = "kicked";
 
     private final Store store;
@@ -84,15 +86,22 @@ public class ParrotBot implements SpringLongPollingBot, LongPollingSingleThreadU
             }
         }
         if(update.hasChatMember() && isParrotGroup(update.getChatMember().getChat())) {
-            if(LEFT.equals(update.getChatMember().getOldChatMember().getStatus()) && MEMBER.equals(update.getChatMember().getNewChatMember().getStatus())) {
+            ChatMember oldChatMember = update.getChatMember().getOldChatMember();
+            ChatMember newChatMember = update.getChatMember().getNewChatMember();
+            if(!isInChat(oldChatMember) && isInChat(newChatMember)) {
                 sendWelcomeMessage();
-                restrictNewUser(update.getChatMember().getNewChatMember().getUser().getId());
+                //Only restrict plain members: overwriting an existing restriction with the timed cooldown would lift it when the cooldown expires
+                if(MEMBER.equals(newChatMember.getStatus())) {
+                    restrictNewUser(newChatMember.getUser().getId());
+                }
                 deleteOldWelcomeMessages();
-            } else if(!KICKED.equals(update.getChatMember().getOldChatMember().getStatus()) && KICKED.equals(update.getChatMember().getNewChatMember().getStatus())) {
-                String nym = NymGenerator.getNym(update.getChatMember().getNewChatMember().getUser().getId().toString());
+            }
+
+            if(!KICKED.equals(oldChatMember.getStatus()) && KICKED.equals(newChatMember.getStatus())) {
+                String nym = NymGenerator.getNym(newChatMember.getUser().getId().toString());
                 banNym(null, nym);
-            } else if(KICKED.equals(update.getChatMember().getOldChatMember().getStatus()) && !KICKED.equals(update.getChatMember().getNewChatMember().getStatus())) {
-                String nym = NymGenerator.getNym(update.getChatMember().getNewChatMember().getUser().getId().toString());
+            } else if(KICKED.equals(oldChatMember.getStatus()) && !KICKED.equals(newChatMember.getStatus())) {
+                String nym = NymGenerator.getNym(newChatMember.getUser().getId().toString());
                 unbanNym(null, nym);
             }
         }
@@ -438,6 +447,14 @@ public class ParrotBot implements SpringLongPollingBot, LongPollingSingleThreadU
         } catch(TelegramApiException e) {
             log.error("Error sending ban confirmation message", e);
         }
+    }
+
+    private static boolean isInChat(ChatMember chatMember) {
+        return switch(chatMember) {
+            case ChatMemberRestricted restricted -> Boolean.TRUE.equals(restricted.getIsMember());
+            case ChatMemberLeft _, ChatMemberBanned _ -> false;
+            default -> true;
+        };
     }
 
     private boolean isParrotGroup(Chat chat) {
