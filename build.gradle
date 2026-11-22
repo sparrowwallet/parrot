@@ -79,7 +79,7 @@ jlink {
 
 tasks.jlink.finalizedBy('addUserWritePermission')
 if(os.isLinux()) {
-    tasks.jpackageImage.finalizedBy('prepareResourceDir')
+    tasks.jpackage.dependsOn('prepareResourceDir')
 }
 
 tasks.register('addUserWritePermission', Exec) {
@@ -87,6 +87,9 @@ tasks.register('addUserWritePermission', Exec) {
 }
 
 tasks.register('prepareResourceDir', Copy) {
+    //Installed-Size is measured from the application image, and the substituted values are not tracked inputs, so always regenerate
+    dependsOn tasks.jpackageImage
+    outputs.upToDateWhen { false }
     from('src/main/deploy/package/linux')
     into(layout.buildDirectory.dir('deploy/package'))
     include('*')
