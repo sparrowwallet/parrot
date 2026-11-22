@@ -1,6 +1,6 @@
 plugins {
     id 'application'
-    id 'org.springframework.boot' version '3.4.1'
+    id 'com.gradleup.shadow' version '9.4.3'
 }
 
 group = 'com.sparrowwallet'
@@ -15,18 +15,22 @@ application {
 }
 
 dependencies {
-    implementation('org.telegram:telegrambots-springboot-longpolling-starter:8.2.0')
     implementation('org.telegram:telegrambots-longpolling:8.2.0')
     implementation('org.telegram:telegrambots-client:8.2.0')
-    implementation ('ch.qos.logback:logback-classic:1.4.14') {
-        exclude group: 'org.slf4j'
-    }
-    implementation('org.yaml:snakeyaml:2.3')
+    implementation('ch.qos.logback:logback-classic:1.6.8')
     implementation('io.lettuce:lettuce-core:6.5.2.RELEASE')
-    implementation('jakarta.annotation:jakarta.annotation-api:2.1.1')
     testImplementation platform('org.junit:junit-bom:5.10.0')
     testImplementation('org.junit.jupiter:junit-jupiter')
     testRuntimeOnly('org.junit.platform:junit-platform-launcher')
+}
+
+jar {
+    archiveClassifier = 'plain'
+}
+
+shadowJar {
+    archiveClassifier = ''
+    mergeServiceFiles()
 }
 
 test {

@@ -6,13 +6,9 @@ import io.lettuce.core.api.StatefulRedisConnection;
 import io.lettuce.core.api.sync.RedisCommands;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
-import org.springframework.stereotype.Component;
 
 import java.util.List;
 
-@Component
-@ConditionalOnProperty(name = "store.implementation", havingValue = "redisStore")
 public class RedisStore implements Store {
     private static final Logger log = LoggerFactory.getLogger(RedisStore.class);
 

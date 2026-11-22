@@ -1,13 +1,9 @@
 package com.sparrowwallet.parrot.store;
 
 import com.sparrowwallet.parrot.ForwardedMessage;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
-import org.springframework.stereotype.Component;
 
 import java.util.*;
 
-@Component
-@ConditionalOnProperty(name = "store.implementation", havingValue = "javaStore")
 public class JavaStore implements Store {
     private final Map<String, List<Integer>> sentNymMessages = new HashMap<>();
     private final Map<Integer, Integer> forwardedMessages = new HashMap<>();

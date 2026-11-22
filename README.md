@@ -9,7 +9,7 @@ A welcome message is displayed, and a cooldown period can be added to prevent ne
 Build Parrot with
 
 ```shell
-./gradlew clean bootJar
+./gradlew clean shadowJar
 ```
 
 ## Running
@@ -31,10 +31,16 @@ Optionally, add another environmental variable to set a cooldown period for new 
 PARROT_COOLDOWN_PERIOD_MINUTES=10
 ```
 
-Then run with
+Parrot stores its data in Redis at `localhost:6379` by default. For testing without Redis, an in-memory store that is lost on restart can be used instead:
+```shell
+PARROT_STORE=java
 ```
-java -jar build/libs/parrot-1.0.jar
+
+Then run with Java 25 or later
 ```
+java -Xmx64m -XX:+UseSerialGC -XX:TieredStopAtLevel=1 -Xss512k -XX:ReservedCodeCacheSize=32m -jar build/libs/parrot-1.0.jar
+```
+The JVM options are optional, and reduce memory use to around 120MB.
 
 ## Configuration
 

@@ -1,13 +1,9 @@
 package com.sparrowwallet.parrot;
 
 import com.sparrowwallet.parrot.store.Store;
-import jakarta.annotation.PreDestroy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.stereotype.Component;
 import org.telegram.telegrambots.client.okhttp.OkHttpTelegramClient;
-import org.telegram.telegrambots.longpolling.interfaces.LongPollingUpdateConsumer;
-import org.telegram.telegrambots.longpolling.starter.SpringLongPollingBot;
 import org.telegram.telegrambots.longpolling.util.LongPollingSingleThreadUpdateConsumer;
 import org.telegram.telegrambots.meta.api.methods.CopyMessage;
 import org.telegram.telegrambots.meta.api.methods.groupadministration.GetChat;
@@ -32,13 +28,13 @@ import org.telegram.telegrambots.meta.generics.TelegramClient;
 
 import java.util.*;
 
-@Component
-public class ParrotBot implements SpringLongPollingBot, LongPollingSingleThreadUpdateConsumer {
+public class ParrotBot implements LongPollingSingleThreadUpdateConsumer {
     private static final Logger log = LoggerFactory.getLogger(ParrotBot.class);
     public static final String PARROT_BOT_TOKEN = "PARROT_BOT_TOKEN";
     public static final String PARROT_GROUP_ID = "PARROT_GROUP_ID";
     public static final String PARROT_BOT_USERNAME = "PARROT_BOT_USERNAME";
     public static final String PARROT_COOLDOWN_PERIOD_MINUTES = "PARROT_COOLDOWN_PERIOD_MINUTES";
+    public static final String PARROT_STORE = "PARROT_STORE";
     public static final String PARROT_NYM_SECRET = "PARROT_NYM_SECRET";
     public static final String MEMBER = "member";
     public static final String KICKED = "kicked";
@@ -602,14 +598,8 @@ public class ParrotBot implements SpringLongPollingBot, LongPollingSingleThreadU
         return groupName;
     }
 
-    @Override
     public String getBotToken() {
         return System.getenv(PARROT_BOT_TOKEN);
-    }
-
-    @Override
-    public LongPollingUpdateConsumer getUpdatesConsumer() {
-        return this;
     }
 
     public String getGroupId() {
@@ -634,10 +624,4 @@ public class ParrotBot implements SpringLongPollingBot, LongPollingSingleThreadU
     }
 
     private record Album(String mediaGroupId, RateLimiter.Result rateLimit) {}
-
-    @PreDestroy
-    public void shutdown() throws Exception {
-        log.info("Shutting down");
-        store.close();
-    }
 }

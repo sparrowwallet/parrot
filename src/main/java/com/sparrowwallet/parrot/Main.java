@@ -1,17 +1,23 @@
 package com.sparrowwallet.parrot;
 
+import com.sparrowwallet.parrot.store.JavaStore;
+import com.sparrowwallet.parrot.store.RedisStore;
+import com.sparrowwallet.parrot.store.Store;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.boot.SpringApplication;
-import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.telegram.telegrambots.longpolling.TelegramBotsLongPollingApplication;
+import org.telegram.telegrambots.longpolling.util.DefaultGetUpdatesGenerator;
+import org.telegram.telegrambots.meta.TelegramUrl;
+import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 
-@SpringBootApplication
+import java.util.List;
+
 public class Main {
     private static final Logger log = LoggerFactory.getLogger(Main.class);
     private static final int MIN_NYM_SECRET_LENGTH = 32;
+    private static final List<String> ALLOWED_UPDATES = List.of("message", "edited_message", "chat_member", "message_reaction");
 
-    public static void main(String[] args) {
+    public static void main(String[] args) throws InterruptedException {
         String botToken = System.getenv(ParrotBot.PARROT_BOT_TOKEN);
         if(botToken == null) {
             System.err.println(ParrotBot.PARROT_BOT_TOKEN + " environment variable not set");
@@ -36,6 +42,31 @@ public class Main {
             System.exit(1);
         }
 
-        SpringApplication.run(Main.class, args);
+        Store store = "java".equalsIgnoreCase(System.getenv(ParrotBot.PARROT_STORE)) ? new JavaStore() : new RedisStore();
+        TelegramBotsLongPollingApplication botsApplication = new TelegramBotsLongPollingApplication();
+
+        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+            log.info("Shutting down");
+            try {
+                botsApplication.close();
+            } catch(Exception e) {
+                log.error("Error stopping bot", e);
+            }
+            try {
+                store.close();
+            } catch(Exception e) {
+                log.error("Error closing store", e);
+            }
+        }));
+
+        try {
+            botsApplication.registerBot(botToken, () -> TelegramUrl.DEFAULT_URL, new DefaultGetUpdatesGenerator(ALLOWED_UPDATES), new ParrotBot(store));
+            log.info("Started " + botUserName);
+        } catch(TelegramApiException e) {
+            log.error("Error registering bot", e);
+            System.exit(1);
+        }
+
+        Thread.currentThread().join();
     }
 }
