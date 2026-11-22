@@ -58,7 +58,7 @@ jlink {
         requires 'jdk.unsupported'
     }
 
-    options = ['--strip-native-commands', '--strip-java-debug-attributes', '--compress', 'zip-6', '--no-header-files', '--no-man-pages', '--ignore-signing-information',
+    options = ['--strip-java-debug-attributes', '--compress', 'zip-6', '--no-header-files', '--no-man-pages', '--ignore-signing-information',
                '--exclude-resources', 'glob:/com.sparrowwallet.merged.module/META-INF/*']
     launcher {
         name = 'parrot'
