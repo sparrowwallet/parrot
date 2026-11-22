@@ -18,7 +18,7 @@ On Linux, build a `.deb` package containing Parrot and a minimal Java runtime wi
 ./gradlew clean jpackage
 ```
 
-This requires `fakeroot` and `dpkg-deb`, and creates `build/jpackage/parrot_1.0-1_amd64.deb` (or `arm64`), which installs Parrot to `/opt/parrot`.
+This requires `fakeroot` and `dpkg-deb`, and creates `build/jpackage/parrot_1.1-1_amd64.deb` (or `arm64`), which installs Parrot to `/opt/parrot`.
 The launcher `/opt/parrot/bin/parrot` includes the memory-saving JVM options below. On other platforms, `./gradlew jpackageImage` builds the application image only.
 
 ## Running
@@ -53,9 +53,9 @@ PARROT_STORE=java
 
 Then run with Java 25 or later
 ```
-java -Xmx64m -XX:+UseSerialGC -XX:TieredStopAtLevel=1 -Xss512k -XX:ReservedCodeCacheSize=32m -jar build/libs/parrot-1.0.jar
+java -Xmx64m -XX:+UseSerialGC -XX:TieredStopAtLevel=1 -Xss512k -XX:ReservedCodeCacheSize=32m -jar build/libs/parrot-1.1.jar
 ```
-The JVM options are optional, and reduce memory use to around 120MB.
+The JVM options are optional, and reduce memory use to around 130MB.
 
 ## Configuration
 

@@ -9,7 +9,7 @@ def os = org.gradle.internal.os.OperatingSystem.current()
 def releaseArch = System.getProperty('os.arch') == 'aarch64' ? 'aarch64' : 'x86_64'
 
 group = 'com.sparrowwallet'
-version = '1.0'
+version = '1.1'
 
 repositories {
     mavenCentral()
