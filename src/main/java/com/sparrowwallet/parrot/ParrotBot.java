@@ -9,6 +9,7 @@ import org.telegram.telegrambots.client.okhttp.OkHttpTelegramClient;
 import org.telegram.telegrambots.longpolling.interfaces.LongPollingUpdateConsumer;
 import org.telegram.telegrambots.longpolling.starter.SpringLongPollingBot;
 import org.telegram.telegrambots.longpolling.util.LongPollingSingleThreadUpdateConsumer;
+import org.telegram.telegrambots.meta.api.methods.CopyMessage;
 import org.telegram.telegrambots.meta.api.methods.groupadministration.GetChat;
 import org.telegram.telegrambots.meta.api.methods.groupadministration.GetChatAdministrators;
 import org.telegram.telegrambots.meta.api.methods.groupadministration.RestrictChatMember;
@@ -300,38 +301,75 @@ public class ParrotBot implements SpringLongPollingBot, LongPollingSingleThreadU
     }
 
     private void forwardReply(Update update, String userName) {
-        ForwardedMessage forwardedMessage = store.getSentMessage(update.getMessage().getReplyToMessage().getMessageId());
+        Message message = update.getMessage();
+        ForwardedMessage forwardedMessage = store.getSentMessage(message.getReplyToMessage().getMessageId());
 
-        if(update.getMessage().hasText()) {
-            SendMessage replyMessage = SendMessage.builder()
-                    .text(userName + ": " + update.getMessage().getText())
-                    .replyToMessageId(forwardedMessage.messageId())
-                    .allowSendingWithoutReply(true)
-                    .chatId(forwardedMessage.chatId()).build();
-
-            try {
+        try {
+            if(message.hasText()) {
+                SendMessage replyMessage = SendMessage.builder()
+                        .text(truncate(userName + ": " + message.getText(), MAX_MESSAGE_LENGTH))
+                        .replyToMessageId(forwardedMessage.messageId())
+                        .allowSendingWithoutReply(true)
+                        .chatId(forwardedMessage.chatId()).build();
                 Message sentMessage = telegramClient.execute(replyMessage);
-                store.addSentReply(sentMessage.getMessageId(), update.getMessage().getMessageId());
-            } catch(TelegramApiException e) {
-                log.error("Error sending reply to forwarded message", e);
-            }
-        } else if(update.getMessage().hasPhoto()) {
-            PhotoSize photoSize = update.getMessage().getPhoto().getLast();
-            InputFile inputFile = new InputFile(photoSize.getFileId());
-            SendPhoto replyPhoto = SendPhoto.builder()
-                    .photo(inputFile)
-                    .caption(update.getMessage().getCaption() == null ? "From " + userName : userName + ": " + update.getMessage().getCaption())
-                    .replyToMessageId(forwardedMessage.messageId())
-                    .allowSendingWithoutReply(true)
-                    .chatId(forwardedMessage.chatId()).build();
-
-            try {
+                store.addSentReply(sentMessage.getMessageId(), message.getMessageId());
+            } else if(message.hasPhoto()) {
+                PhotoSize photoSize = message.getPhoto().getLast();
+                SendPhoto replyPhoto = SendPhoto.builder()
+                        .photo(new InputFile(photoSize.getFileId()))
+                        .caption(truncate(getReplyCaption(message, userName), MAX_CAPTION_LENGTH))
+                        .replyToMessageId(forwardedMessage.messageId())
+                        .allowSendingWithoutReply(true)
+                        .chatId(forwardedMessage.chatId()).build();
                 Message sentMessage = telegramClient.execute(replyPhoto);
-                store.addSentReply(sentMessage.getMessageId(), update.getMessage().getMessageId());
-            } catch(TelegramApiException e) {
-                log.error("Error sending reply to forwarded message", e);
+                store.addSentReply(sentMessage.getMessageId(), message.getMessageId());
+            } else if(message.hasVideo() || message.hasAnimation() || message.hasDocument() || message.hasAudio() || message.hasVoice()) {
+                Integer copiedMessageId = copyReply(message, forwardedMessage, forwardedMessage.messageId(), truncate(getReplyCaption(message, userName), MAX_CAPTION_LENGTH));
+                store.addSentReply(copiedMessageId, message.getMessageId());
+            } else {
+                //Stickers, video notes, polls and similar cannot be captioned, so attribute them with a preceding message
+                SendMessage attribution = SendMessage.builder()
+                        .text(userName + " replied:")
+                        .replyToMessageId(forwardedMessage.messageId())
+                        .allowSendingWithoutReply(true)
+                        .chatId(forwardedMessage.chatId()).build();
+                Message attributionMessage = telegramClient.execute(attribution);
+                store.addSentReply(attributionMessage.getMessageId(), message.getMessageId());
+
+                Integer copiedMessageId = copyReply(message, forwardedMessage, attributionMessage.getMessageId(), null);
+                store.addSentReply(copiedMessageId, message.getMessageId());
             }
+        } catch(TelegramApiException e) {
+            log.error("Error sending reply to forwarded message", e);
         }
+    }
+
+    private Integer copyReply(Message message, ForwardedMessage forwardedMessage, Integer replyToMessageId, String caption) throws TelegramApiException {
+        CopyMessage copyMessage = CopyMessage.builder()
+                .fromChatId(message.getChatId())
+                .messageId(message.getMessageId())
+                .caption(caption)
+                .replyToMessageId(replyToMessageId)
+                .allowSendingWithoutReply(true)
+                .chatId(forwardedMessage.chatId()).build();
+        return telegramClient.execute(copyMessage).getMessageId().intValue();
+    }
+
+    private static String getReplyCaption(Message message, String userName) {
+        return message.getCaption() == null ? "From " + userName : userName + ": " + message.getCaption();
+    }
+
+    private static String truncate(String text, int maxLength) {
+        if(text.length() <= maxLength) {
+            return text;
+        }
+
+        int end = maxLength - 1;
+        if(Character.isHighSurrogate(text.charAt(end - 1))) {
+            end--;
+        }
+
+        return text.substring(0, end) + "…";
     }
 
     private void sendWelcomeMessage() {
