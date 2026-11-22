@@ -77,12 +77,12 @@ public class ParrotBot implements SpringLongPollingBot, LongPollingSingleThreadU
             forwardEditedMessage(update.getEditedMessage());
         } else if(update.getMessageReaction() != null && update.getMessageReaction().getChat().isUserChat()) {
             forwardReaction(update.getMessageReaction());
-        } else if(update.hasMessage() && update.getMessage().getChat().isSuperGroupChat()) {
+        } else if(update.hasMessage() && isParrotGroup(update.getMessage().getChat())) {
             if(update.getMessage().getReplyToMessage() != null && store.hasSentMessage(update.getMessage().getReplyToMessage().getMessageId())) {
                 forwardReply(update, update.getMessage().getFrom().getFirstName());
             }
         }
-        if(update.hasChatMember() && update.getChatMember().getChat().isSuperGroupChat()) {
+        if(update.hasChatMember() && isParrotGroup(update.getChatMember().getChat())) {
             if(LEFT.equals(update.getChatMember().getOldChatMember().getStatus()) && MEMBER.equals(update.getChatMember().getNewChatMember().getStatus())) {
                 sendWelcomeMessage();
                 restrictNewUser(update.getChatMember().getFrom().getId());
@@ -437,6 +437,10 @@ public class ParrotBot implements SpringLongPollingBot, LongPollingSingleThreadU
         } catch(TelegramApiException e) {
             log.error("Error sending ban confirmation message", e);
         }
+    }
+
+    private boolean isParrotGroup(Chat chat) {
+        return chat.isSuperGroupChat() && chat.getId().toString().equals(getGroupId().trim());
     }
 
     private String getGroupName() {
