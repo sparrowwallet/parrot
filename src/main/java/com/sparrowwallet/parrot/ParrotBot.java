@@ -4,7 +4,7 @@ import com.sparrowwallet.parrot.store.Store;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.telegram.telegrambots.client.okhttp.OkHttpTelegramClient;
-import org.telegram.telegrambots.longpolling.util.LongPollingSingleThreadUpdateConsumer;
+import org.telegram.telegrambots.longpolling.util.DefaultLongPollingUpdateConsumer;
 import org.telegram.telegrambots.meta.api.methods.CopyMessage;
 import org.telegram.telegrambots.meta.api.methods.groupadministration.GetChat;
 import org.telegram.telegrambots.meta.api.methods.groupadministration.GetChatAdministrators;
@@ -21,6 +21,7 @@ import org.telegram.telegrambots.meta.api.objects.chatmember.ChatMemberBanned;
 import org.telegram.telegrambots.meta.api.objects.chatmember.ChatMemberLeft;
 import org.telegram.telegrambots.meta.api.objects.chatmember.ChatMemberRestricted;
 import org.telegram.telegrambots.meta.api.objects.message.Message;
+import org.telegram.telegrambots.meta.api.objects.photo.PhotoSize;
 import org.telegram.telegrambots.meta.api.objects.reactions.MessageReactionUpdated;
 import org.telegram.telegrambots.meta.api.objects.reactions.ReactionType;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
@@ -28,7 +29,7 @@ import org.telegram.telegrambots.meta.generics.TelegramClient;
 
 import java.util.*;
 
-public class ParrotBot implements LongPollingSingleThreadUpdateConsumer {
+public class ParrotBot extends DefaultLongPollingUpdateConsumer {
     private static final Logger log = LoggerFactory.getLogger(ParrotBot.class);
     public static final String PARROT_BOT_TOKEN = "PARROT_BOT_TOKEN";
     public static final String PARROT_GROUP_ID = "PARROT_GROUP_ID";
