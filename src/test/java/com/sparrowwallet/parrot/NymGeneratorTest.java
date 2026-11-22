@@ -27,6 +27,29 @@ public class NymGeneratorTest {
     }
 
     @Test
+    public void canonicalNym() {
+        Assertions.assertEquals("#GlumPitch", NymGenerator.toCanonicalNym("#GlumPitch"));
+        Assertions.assertEquals("#GlumPitch", NymGenerator.toCanonicalNym("GlumPitch"));
+        Assertions.assertEquals("#GlumPitch", NymGenerator.toCanonicalNym(" #glumPITCH "));
+        Assertions.assertNull(NymGenerator.toCanonicalNym("#GlumPitc"));
+        Assertions.assertNull(NymGenerator.toCanonicalNym("#Glum"));
+        Assertions.assertNull(NymGenerator.toCanonicalNym("#GlumPitch extra"));
+        Assertions.assertNull(NymGenerator.toCanonicalNym("#"));
+        Assertions.assertNull(NymGenerator.toCanonicalNym(""));
+        Assertions.assertEquals("#CloseDad", NymGenerator.toCanonicalNym("#CloseDad"));
+        Assertions.assertEquals("#ClosedAd", NymGenerator.toCanonicalNym("#ClosedAd"));
+        Assertions.assertNull(NymGenerator.toCanonicalNym("#closedad"));
+    }
+
+    @Test
+    public void generatedNymsAreCanonical() {
+        for(long userId = 1000000; userId < 1002000; userId++) {
+            String nym = NymGenerator.getNym(SECRET, Long.toString(userId));
+            Assertions.assertEquals(nym, NymGenerator.toCanonicalNym(nym));
+        }
+    }
+
+    @Test
     public void missingSecretFails() {
         Assertions.assertThrows(IllegalStateException.class, () -> NymGenerator.getNym(null, "123456789"));
     }

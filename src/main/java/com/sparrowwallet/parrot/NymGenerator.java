@@ -12,6 +12,7 @@ import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 
@@ -68,6 +69,45 @@ public class NymGenerator {
         } catch(NoSuchAlgorithmException | InvalidKeyException e) {
             throw new IllegalStateException("Failed to generate HMAC-SHA256", e);
         }
+    }
+
+    /**
+     * Returns the nym in its canonical form if it is a valid nym ignoring an optional leading #, otherwise null.
+     * Case is ignored unless needed to distinguish nyms that differ only by case, such as #CloseDad and #ClosedAd.
+     */
+    public static String toCanonicalNym(String input) {
+        String name = input.strip();
+        if(name.startsWith("#")) {
+            name = name.substring(1);
+        }
+
+        String caseInsensitiveMatch = null;
+        boolean ambiguous = false;
+        String lowerName = name.toLowerCase(Locale.ROOT);
+        for(String adjective : ENGLISH_ADJECTIVES) {
+            String capitalizedAdjective = capitalize(adjective);
+            if(!lowerName.startsWith(capitalizedAdjective.toLowerCase(Locale.ROOT))) {
+                continue;
+            }
+
+            String rest = name.substring(capitalizedAdjective.length());
+            for(String noun : ENGLISH_NOUNS) {
+                String capitalizedNoun = capitalize(noun);
+                if(capitalizedNoun.equalsIgnoreCase(rest)) {
+                    String nym = "#" + capitalizedAdjective + capitalizedNoun;
+                    if(nym.equals("#" + name)) {
+                        return nym;
+                    }
+                    if(caseInsensitiveMatch == null) {
+                        caseInsensitiveMatch = nym;
+                    } else if(!caseInsensitiveMatch.equals(nym)) {
+                        ambiguous = true;
+                    }
+                }
+            }
+        }
+
+        return ambiguous ? null : caseInsensitiveMatch;
     }
 
     private static String capitalize(String s) {

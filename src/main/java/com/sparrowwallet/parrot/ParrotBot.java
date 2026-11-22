@@ -41,6 +41,8 @@ public class ParrotBot implements SpringLongPollingBot, LongPollingSingleThreadU
     public static final String PARROT_NYM_SECRET = "PARROT_NYM_SECRET";
     public static final String MEMBER = "member";
     public static final String KICKED = "kicked";
+    public static final String BAN_COMMAND = "/ban";
+    public static final String UNBAN_COMMAND = "/unban";
 
     private final Store store;
     private final TelegramClient telegramClient;
@@ -89,10 +91,10 @@ public class ParrotBot implements SpringLongPollingBot, LongPollingSingleThreadU
                     sendRateLimitedMessage(update);
                 }
             } else if(update.getMessage().hasText()) {
-                if(update.getMessage().getText().startsWith("/ban ") && isGroupAdmin(update.getMessage().getFrom().getId())) {
-                    banNym(update.getMessage().getChatId(), update.getMessage().getText().substring(5));
-                } else if(update.getMessage().getText().startsWith("/unban ") && isGroupAdmin(update.getMessage().getFrom().getId())) {
-                    unbanNym(update.getMessage().getChatId(), update.getMessage().getText().substring(7));
+                String text = update.getMessage().getText();
+                String command = text.split("\\s+", 2)[0];
+                if((BAN_COMMAND.equals(command) || UNBAN_COMMAND.equals(command)) && isGroupAdmin(userId)) {
+                    handleBanCommand(update.getMessage().getChatId(), BAN_COMMAND.equals(command), text.substring(command.length()).strip());
                 } else if(update.getMessage().getText().startsWith("/start")) {
                     sendStartMessage(update);
                 } else {
@@ -422,20 +424,46 @@ public class ParrotBot implements SpringLongPollingBot, LongPollingSingleThreadU
         return false;
     }
 
+    private void handleBanCommand(Long chatId, boolean ban, String argument) {
+        String command = ban ? BAN_COMMAND : UNBAN_COMMAND;
+        if(argument.isEmpty()) {
+            sendAdminReply(chatId, "Usage: " + command + " #NymName");
+            return;
+        }
+
+        String nym = NymGenerator.toCanonicalNym(argument);
+        if(nym == null) {
+            sendAdminReply(chatId, argument + " is not a valid nym (check spelling and capitalisation), nobody has been " + (ban ? "banned" : "unbanned") + ". Usage: " + command + " #NymName");
+            return;
+        }
+
+        if(ban) {
+            banNym(chatId, nym);
+        } else {
+            unbanNym(chatId, nym);
+        }
+    }
+
     private void banNym(Long chatId, String nym) {
+        boolean alreadyBanned = store.hasBannedNym(nym);
         store.addBannedNym(nym);
 
+        String deletionResult = "No forwarded messages from this nym were found to delete.";
         List<Integer> sentMessageIds = store.getSentNymMessageIds(nym);
         if(sentMessageIds != null && !sentMessageIds.isEmpty()) {
             if(sentMessageIds.size() > 100) {
                 sentMessageIds = new ArrayList<>(sentMessageIds.subList(sentMessageIds.size() - 100, sentMessageIds.size()));
             }
 
+            deletionResult = "Their forwarded messages could not be deleted, check the bot has the Delete Messages permission.";
             try {
                 DeleteMessages deleteMessages = new DeleteMessages(getGroupId(), sentMessageIds);
                 Boolean result = telegramClient.execute(deleteMessages);
                 if(result == null || !result) {
-                    log.error("Bot does not have permission to delete messages from banned bym, add Delete Messages permission");
+                    log.error("Bot does not have permission to delete messages from banned nym, add Delete Messages permission");
+                } else {
+                    deletionResult = "Deleted their last " + sentMessageIds.size() + " forwarded message" + (sentMessageIds.size() == 1 ? "" : "s") +
+                            " (messages older than 48 hours cannot be deleted by the bot).";
                 }
             } catch(TelegramApiException e) {
                 log.error("Error deleting banned nym messages", e);
@@ -443,29 +471,24 @@ public class ParrotBot implements SpringLongPollingBot, LongPollingSingleThreadU
         }
 
         if(chatId != null) {
-            SendMessage sendMessage = SendMessage.builder()
-                    .chatId(chatId)
-                    .text(nym + " has been banned, and all forwarded messages have been deleted").build();
-            try {
-                telegramClient.execute(sendMessage);
-            } catch(TelegramApiException e) {
-                log.error("Error sending ban confirmation message", e);
-            }
+            sendAdminReply(chatId, nym + (alreadyBanned ? " was already banned. " : " has been banned. ") + deletionResult);
         }
     }
 
     private void unbanNym(Long chatId, String nym) {
-        store.removeBannedNym(nym);
+        boolean wasBanned = store.removeBannedNym(nym);
 
         if(chatId != null) {
-            SendMessage sendMessage = SendMessage.builder()
-                    .chatId(chatId)
-                    .text(nym + " has been unbanned").build();
-            try {
-                telegramClient.execute(sendMessage);
-            } catch(TelegramApiException e) {
-                log.error("Error sending unban confirmation message", e);
-            }
+            sendAdminReply(chatId, nym + (wasBanned ? " has been unbanned." : " was not banned."));
+        }
+    }
+
+    private void sendAdminReply(Long chatId, String text) {
+        SendMessage sendMessage = SendMessage.builder().chatId(chatId).text(text).build();
+        try {
+            telegramClient.execute(sendMessage);
+        } catch(TelegramApiException e) {
+            log.error("Error sending admin command reply", e);
         }
     }
 
