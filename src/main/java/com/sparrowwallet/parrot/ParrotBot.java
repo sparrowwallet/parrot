@@ -176,12 +176,18 @@ public class ParrotBot implements SpringLongPollingBot, LongPollingSingleThreadU
     }
 
     private void forwardEditedMessage(Message editedMessage) {
+        String nym = NymGenerator.getNym(editedMessage.getFrom().getId().toString());
+        if(store.hasBannedNym(nym)) {
+            sendBannedMessage(editedMessage.getChatId());
+            return;
+        }
+
         Integer forwardedMessageId = store.getForwardedMessageId(editedMessage.getMessageId());
         if(forwardedMessageId != null) {
             EditMessageText editMessageText = EditMessageText.builder()
                     .messageId(forwardedMessageId)
                     .chatId(getGroupId())
-                    .text(editedMessage.getText()).build();
+                    .text(nym + ": " + editedMessage.getText()).build();
 
             try {
                 telegramClient.execute(editMessageText);
