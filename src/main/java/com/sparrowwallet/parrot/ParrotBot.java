@@ -43,6 +43,9 @@ public class ParrotBot implements SpringLongPollingBot, LongPollingSingleThreadU
     public static final String KICKED = "kicked";
     public static final String BAN_COMMAND = "/ban";
     public static final String UNBAN_COMMAND = "/unban";
+    private static final int MAX_MESSAGE_LENGTH = 4096;
+    private static final int MAX_CAPTION_LENGTH = 1024;
+    private static final String FORWARD_FAILED = " could not be forwarded to the group, please try again later.";
 
     private final Store store;
     private final TelegramClient telegramClient;
@@ -161,8 +164,15 @@ public class ParrotBot implements SpringLongPollingBot, LongPollingSingleThreadU
             replyToMessageId = store.getSentReply(update.getMessage().getReplyToMessage().getMessageId());
         }
 
+        String text = nym + ": " + update.getMessage().getText();
+        if(text.length() > MAX_MESSAGE_LENGTH) {
+            sendPrivateMessage(update.getMessage().getChatId(), "Your message is too long to forward. Please keep it under " +
+                    (MAX_MESSAGE_LENGTH - nym.length() - 2) + " characters, or split it into several messages.");
+            return;
+        }
+
         SendMessage sendMessage = SendMessage.builder()
-                .text(nym + ": " + update.getMessage().getText())
+                .text(text)
                 .replyToMessageId(replyToMessageId)
                 .allowSendingWithoutReply(true)
                 .chatId(getGroupId()).build();
@@ -177,6 +187,7 @@ public class ParrotBot implements SpringLongPollingBot, LongPollingSingleThreadU
             }
         } catch(TelegramApiException e) {
             log.error("Error forwarding message", e);
+            sendPrivateMessage(update.getMessage().getChatId(), "Your message" + FORWARD_FAILED);
         }
     }
 
@@ -194,11 +205,18 @@ public class ParrotBot implements SpringLongPollingBot, LongPollingSingleThreadU
             replyToMessageId = store.getSentReply(update.getMessage().getReplyToMessage().getMessageId());
         }
 
+        String caption = update.getMessage().getCaption() == null ? "From " + nym : nym + ": " + update.getMessage().getCaption();
+        if(caption.length() > MAX_CAPTION_LENGTH) {
+            sendPrivateMessage(update.getMessage().getChatId(), "Your image caption is too long to forward. Please keep it under " +
+                    (MAX_CAPTION_LENGTH - nym.length() - 2) + " characters, or send the image and text as separate messages.");
+            return;
+        }
+
         PhotoSize photoSize = update.getMessage().getPhoto().getLast();
         InputFile inputFile = new InputFile(photoSize.getFileId());
         SendPhoto sendPhoto = SendPhoto.builder()
                 .photo(inputFile)
-                .caption(update.getMessage().getCaption() == null ? "From " + nym : nym + ": " + update.getMessage().getCaption())
+                .caption(caption)
                 .replyToMessageId(replyToMessageId)
                 .allowSendingWithoutReply(true)
                 .chatId(getGroupId()).build();
@@ -213,6 +231,7 @@ public class ParrotBot implements SpringLongPollingBot, LongPollingSingleThreadU
             }
         } catch(TelegramApiException e) {
             log.error("Error forwarding photo", e);
+            sendPrivateMessage(update.getMessage().getChatId(), "Your image" + FORWARD_FAILED);
         }
     }
 
@@ -225,10 +244,17 @@ public class ParrotBot implements SpringLongPollingBot, LongPollingSingleThreadU
 
         Integer forwardedMessageId = store.getForwardedMessageId(editedMessage.getMessageId());
         if(forwardedMessageId != null) {
+            String text = nym + ": " + editedMessage.getText();
+            if(text.length() > MAX_MESSAGE_LENGTH) {
+                sendPrivateMessage(editedMessage.getChatId(), "Your edited message is too long to forward. Please keep it under " +
+                        (MAX_MESSAGE_LENGTH - nym.length() - 2) + " characters.");
+                return;
+            }
+
             EditMessageText editMessageText = EditMessageText.builder()
                     .messageId(forwardedMessageId)
                     .chatId(getGroupId())
-                    .text(nym + ": " + editedMessage.getText()).build();
+                    .text(text).build();
 
             try {
                 telegramClient.execute(editMessageText);
@@ -427,13 +453,14 @@ public class ParrotBot implements SpringLongPollingBot, LongPollingSingleThreadU
     private void handleBanCommand(Long chatId, boolean ban, String argument) {
         String command = ban ? BAN_COMMAND : UNBAN_COMMAND;
         if(argument.isEmpty()) {
-            sendAdminReply(chatId, "Usage: " + command + " #NymName");
+            sendPrivateMessage(chatId, "Usage: " + command + " #NymName");
             return;
         }
 
         String nym = NymGenerator.toCanonicalNym(argument);
         if(nym == null) {
-            sendAdminReply(chatId, argument + " is not a valid nym (check spelling and capitalisation), nobody has been " + (ban ? "banned" : "unbanned") + ". Usage: " + command + " #NymName");
+            sendPrivateMessage(chatId, argument + " is not a valid nym (check spelling and capitalisation), nobody has been " + (ban ? "banned" : "unbanned") +
+                    ". Usage: " + command + " #NymName");
             return;
         }
 
@@ -471,7 +498,7 @@ public class ParrotBot implements SpringLongPollingBot, LongPollingSingleThreadU
         }
 
         if(chatId != null) {
-            sendAdminReply(chatId, nym + (alreadyBanned ? " was already banned. " : " has been banned. ") + deletionResult);
+            sendPrivateMessage(chatId, nym + (alreadyBanned ? " was already banned. " : " has been banned. ") + deletionResult);
         }
     }
 
@@ -479,16 +506,16 @@ public class ParrotBot implements SpringLongPollingBot, LongPollingSingleThreadU
         boolean wasBanned = store.removeBannedNym(nym);
 
         if(chatId != null) {
-            sendAdminReply(chatId, nym + (wasBanned ? " has been unbanned." : " was not banned."));
+            sendPrivateMessage(chatId, nym + (wasBanned ? " has been unbanned." : " was not banned."));
         }
     }
 
-    private void sendAdminReply(Long chatId, String text) {
+    private void sendPrivateMessage(Long chatId, String text) {
         SendMessage sendMessage = SendMessage.builder().chatId(chatId).text(text).build();
         try {
             telegramClient.execute(sendMessage);
         } catch(TelegramApiException e) {
-            log.error("Error sending admin command reply", e);
+            log.error("Error sending private message", e);
         }
     }
 
