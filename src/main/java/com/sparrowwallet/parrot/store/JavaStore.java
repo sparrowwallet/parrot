@@ -15,6 +15,7 @@ public class JavaStore implements Store {
     private final Map<Integer, Integer> sentReplies = new HashMap<>();
     private final Set<String> bannedNyms = new HashSet<>();
     private final Map<Long, Long> newUserTimestamps = new HashMap<>();
+    private Integer welcomeMessageId;
 
     @Override
     public void addSentNymMessage(String nym, Integer messageId) {
@@ -89,6 +90,16 @@ public class JavaStore implements Store {
     @Override
     public Long getNewUserTimestamp(Long userId) {
         return newUserTimestamps.get(userId);
+    }
+
+    @Override
+    public void setWelcomeMessageId(Integer messageId) {
+        welcomeMessageId = messageId;
+    }
+
+    @Override
+    public Integer getWelcomeMessageId() {
+        return welcomeMessageId;
     }
 
     @Override

@@ -53,8 +53,8 @@ public class ParrotBot implements SpringLongPollingBot, LongPollingSingleThreadU
     private final RateLimiter rateLimiter;
     private String groupName;
 
-    private static final long WELCOME_MESSAGE_TIMEOUT = 60 * 60 * 1000;
-    private final Map<Integer, Long> welcomeMessages = Collections.synchronizedMap(new HashMap<>());
+    private static final long WELCOME_MESSAGE_MIN_INTERVAL = 60 * 1000;
+    private long lastWelcomeMessageTime;
 
     private static final int MAX_TRACKED_ALBUMS = 1000;
     private final Map<Long, Album> lastAlbums = new LinkedHashMap<>() {
@@ -128,12 +128,11 @@ public class ParrotBot implements SpringLongPollingBot, LongPollingSingleThreadU
             ChatMember oldChatMember = update.getChatMember().getOldChatMember();
             ChatMember newChatMember = update.getChatMember().getNewChatMember();
             if(!isInChat(oldChatMember) && isInChat(newChatMember)) {
-                sendWelcomeMessage();
+                replaceWelcomeMessage();
                 //Only restrict plain members: overwriting an existing restriction with the timed cooldown would lift it when the cooldown expires
                 if(MEMBER.equals(newChatMember.getStatus())) {
                     restrictNewUser(newChatMember.getUser().getId());
                 }
-                deleteOldWelcomeMessages();
             }
 
             if(!KICKED.equals(oldChatMember.getStatus()) && KICKED.equals(newChatMember.getStatus())) {
@@ -380,7 +379,17 @@ public class ParrotBot implements SpringLongPollingBot, LongPollingSingleThreadU
         return text.substring(0, end) + "…";
     }
 
-    private void sendWelcomeMessage() {
+    /**
+     * Posts a new welcome message and deletes the previous one, so only the latest is visible. During a burst of joins the
+     * welcome is reposted at most once per minute, to avoid flooding the group and hitting Telegram's rate limits.
+     */
+    private void replaceWelcomeMessage() {
+        long now = System.currentTimeMillis();
+        if(now - lastWelcomeMessageTime < WELCOME_MESSAGE_MIN_INTERVAL) {
+            return;
+        }
+        lastWelcomeMessageTime = now;
+
         String welcomeText = """
                 ⚠️WARNING: There are scammers impersonating admins in this chat ⚠️
                 
@@ -393,7 +402,7 @@ public class ParrotBot implements SpringLongPollingBot, LongPollingSingleThreadU
             welcomeText += """
                 To ensure you have read and considered this advice, you will not be able to post directly to this chat for [COOLDOWN_PERIOD]. You can however ask questions using [BOT_NAME] during this period.
                 
-                """.replace("[COOLDOWN_PERIOD]", cooldownPeriodMinutes > 1 ? cooldownPeriodMinutes + " minutes" : cooldownPeriodMinutes + "minute");
+                """.replace("[COOLDOWN_PERIOD]", cooldownPeriodMinutes > 1 ? cooldownPeriodMinutes + " minutes" : cooldownPeriodMinutes + " minute");
         }
 
         welcomeText += """
@@ -403,34 +412,25 @@ public class ParrotBot implements SpringLongPollingBot, LongPollingSingleThreadU
         SendMessage welcomeMessage = new SendMessage(getGroupId(), welcomeText.replace("[BOT_NAME]", getBotUserName()));
         try {
             Message sentMessage = telegramClient.execute(welcomeMessage);
-            welcomeMessages.put(sentMessage.getMessageId(), System.currentTimeMillis());
+            Integer previousMessageId = store.getWelcomeMessageId();
+            store.setWelcomeMessageId(sentMessage.getMessageId());
+            if(previousMessageId != null) {
+                deleteWelcomeMessage(previousMessageId);
+            }
         } catch(TelegramApiException e) {
             log.error("Error sending welcome message", e);
         }
     }
 
-    private synchronized void deleteOldWelcomeMessages() {
-        long now = System.currentTimeMillis();
-        List<Integer> oldMessageIds = new ArrayList<>();
-        int i = 0;
-        for(Iterator<Integer> iter = welcomeMessages.keySet().iterator(); iter.hasNext() && i < 100; i++) {
-            Integer messageId = iter.next();
-            if(welcomeMessages.get(messageId) != null && (now - welcomeMessages.get(messageId) > WELCOME_MESSAGE_TIMEOUT)) {
-                oldMessageIds.add(messageId);
-                iter.remove();
+    private void deleteWelcomeMessage(Integer messageId) {
+        try {
+            //DeleteMessages skips messages that no longer exist or are too old to delete, rather than failing
+            Boolean result = telegramClient.execute(new DeleteMessages(getGroupId(), List.of(messageId)));
+            if(result == null || !result) {
+                log.error("Bot does not have permission to delete old welcome messages, add Delete Messages permission");
             }
-        }
-
-        if(!oldMessageIds.isEmpty()) {
-            try {
-                DeleteMessages deleteMessages = new DeleteMessages(getGroupId(), oldMessageIds);
-                Boolean result = telegramClient.execute(deleteMessages);
-                if(result == null || !result) {
-                    log.error("Bot does not have permission to delete old welcome messages, add Delete Messages permission");
-                }
-            } catch(TelegramApiException e) {
-                log.error("Error deleting old welcome messages", e);
-            }
+        } catch(TelegramApiException e) {
+            log.error("Error deleting old welcome message", e);
         }
     }
 

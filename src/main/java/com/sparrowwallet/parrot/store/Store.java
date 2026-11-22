@@ -21,4 +21,6 @@ public interface Store extends Closeable {
     boolean removeBannedNym(String nym);
     void newUserAdded(Long userId, Long timestamp);
     Long getNewUserTimestamp(Long userId);
+    void setWelcomeMessageId(Integer messageId);
+    Integer getWelcomeMessageId();
 }

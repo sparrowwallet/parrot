@@ -127,6 +127,19 @@ public class RedisStore implements Store {
     }
 
     @Override
+    public void setWelcomeMessageId(Integer messageId) {
+        RedisCommands<String, String> sync = connection.sync();
+        sync.set("welcomeMsg", messageId.toString());
+    }
+
+    @Override
+    public Integer getWelcomeMessageId() {
+        RedisCommands<String, String> sync = connection.sync();
+        String value = sync.get("welcomeMsg");
+        return value == null ? null : Integer.parseInt(value);
+    }
+
+    @Override
     public void close() {
         connection.close();
         redisClient.shutdown();

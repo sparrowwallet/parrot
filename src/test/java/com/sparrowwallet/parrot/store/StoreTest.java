@@ -53,6 +53,9 @@ public class StoreTest {
         Assertions.assertEquals(20, store.getSentReply(6));
         Assertions.assertNull(store.getSentReply(7));
 
+        store.setWelcomeMessageId(1234);
+        Assertions.assertEquals(1234, store.getWelcomeMessageId());
+
         store.addBannedNym(nym);
 
         Assertions.assertTrue(store.hasBannedNym(nym));
