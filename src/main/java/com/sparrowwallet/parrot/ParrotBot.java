@@ -49,6 +49,8 @@ public class ParrotBot extends DefaultLongPollingUpdateConsumer {
     private final Store store;
     private final TelegramClient telegramClient;
     private final RateLimiter rateLimiter;
+    private final Object updateLock = new Object();
+    private boolean stopped;
     private String groupName;
 
     private static final long WELCOME_MESSAGE_MIN_INTERVAL = 60 * 1000;
@@ -70,10 +72,25 @@ public class ParrotBot extends DefaultLongPollingUpdateConsumer {
 
     @Override
     public void consume(Update update) {
-        try {
-            handleUpdate(update);
-        } catch(RuntimeException e) {
-            log.error("Error handling update " + update.getUpdateId(), e);
+        synchronized(updateLock) {
+            if(stopped) {
+                return;
+            }
+
+            try {
+                handleUpdate(update);
+            } catch(RuntimeException e) {
+                log.error("Error handling update " + update.getUpdateId(), e);
+            }
+        }
+    }
+
+    /**
+     * Waits for any update being handled to finish, and ignores further updates, so the store can be closed safely.
+     */
+    public void stopHandlingUpdates() {
+        synchronized(updateLock) {
+            stopped = true;
         }
     }
 

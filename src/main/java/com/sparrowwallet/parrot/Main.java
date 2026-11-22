@@ -44,6 +44,7 @@ public class Main {
 
         String redisUrl = System.getenv(ParrotBot.PARROT_REDIS_URL);
         Store store = "java".equalsIgnoreCase(System.getenv(ParrotBot.PARROT_STORE)) ? new JavaStore() : new RedisStore(redisUrl == null ? RedisStore.DEFAULT_REDIS_URL : redisUrl);
+        ParrotBot parrotBot = new ParrotBot(store);
         TelegramBotsLongPollingApplication botsApplication = new TelegramBotsLongPollingApplication();
 
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
@@ -53,6 +54,7 @@ public class Main {
             } catch(Exception e) {
                 log.error("Error stopping bot", e);
             }
+            parrotBot.stopHandlingUpdates();
             try {
                 store.close();
             } catch(Exception e) {
@@ -61,7 +63,7 @@ public class Main {
         }));
 
         try {
-            botsApplication.registerBot(botToken, () -> TelegramUrl.DEFAULT_URL, new DefaultGetUpdatesGenerator(ALLOWED_UPDATES), new ParrotBot(store));
+            botsApplication.registerBot(botToken, () -> TelegramUrl.DEFAULT_URL, new DefaultGetUpdatesGenerator(ALLOWED_UPDATES), parrotBot);
             log.info("Started " + botUserName);
         } catch(TelegramApiException e) {
             log.error("Error registering bot", e);
