@@ -155,7 +155,7 @@ public class ParrotBot implements SpringLongPollingBot, LongPollingSingleThreadU
             replyToMessageId = store.getSentReply(update.getMessage().getReplyToMessage().getMessageId());
         }
 
-        PhotoSize photoSize = update.getMessage().getPhoto().getFirst();
+        PhotoSize photoSize = update.getMessage().getPhoto().getLast();
         InputFile inputFile = new InputFile(photoSize.getFileId());
         SendPhoto sendPhoto = SendPhoto.builder()
                 .photo(inputFile)
@@ -249,7 +249,7 @@ public class ParrotBot implements SpringLongPollingBot, LongPollingSingleThreadU
                 log.error("Error sending reply to forwarded message", e);
             }
         } else if(update.getMessage().hasPhoto()) {
-            PhotoSize photoSize = update.getMessage().getPhoto().getFirst();
+            PhotoSize photoSize = update.getMessage().getPhoto().getLast();
             InputFile inputFile = new InputFile(photoSize.getFileId());
             SendPhoto replyPhoto = SendPhoto.builder()
                     .photo(inputFile)
