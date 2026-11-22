@@ -85,7 +85,7 @@ public class ParrotBot implements SpringLongPollingBot, LongPollingSingleThreadU
         if(update.hasChatMember() && isParrotGroup(update.getChatMember().getChat())) {
             if(LEFT.equals(update.getChatMember().getOldChatMember().getStatus()) && MEMBER.equals(update.getChatMember().getNewChatMember().getStatus())) {
                 sendWelcomeMessage();
-                restrictNewUser(update.getChatMember().getFrom().getId());
+                restrictNewUser(update.getChatMember().getNewChatMember().getUser().getId());
                 deleteOldWelcomeMessages();
             } else if(!KICKED.equals(update.getChatMember().getOldChatMember().getStatus()) && KICKED.equals(update.getChatMember().getNewChatMember().getStatus())) {
                 String nym = NymGenerator.getNym(update.getChatMember().getNewChatMember().getUser().getId().toString());
