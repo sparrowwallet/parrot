@@ -1,0 +1,10 @@
+Package: parrot
+Version: ${version}-1
+Section: utils
+Maintainer: Craig Raw <mail@sparrowwallet.com>
+Priority: optional
+Architecture: ${arch}
+Provides: parrot
+Description: Parrot Telegram bot
+Depends: libc6, zlib1g
+Installed-Size: ${size}

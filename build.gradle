@@ -1,7 +1,12 @@
 plugins {
     id 'application'
     id 'com.gradleup.shadow' version '9.4.3'
+    id 'org.gradlex.extra-java-module-info' version '1.14.2'
+    id 'org.beryx.jlink' version '4.2.0'
 }
+
+def os = org.gradle.internal.os.OperatingSystem.current()
+def releaseArch = System.getProperty('os.arch') == 'aarch64' ? 'aarch64' : 'x86_64'
 
 group = 'com.sparrowwallet'
 version = '1.0'
@@ -10,8 +15,16 @@ repositories {
     mavenCentral()
 }
 
+tasks.withType(AbstractArchiveTask).configureEach {
+    useFileSystemPermissions()
+}
+
+def jvmOptions = ['-Xmx64m', '-XX:+UseSerialGC', '-XX:TieredStopAtLevel=1', '-Xss512k', '-XX:ReservedCodeCacheSize=32m']
+
 application {
+    mainModule = 'com.sparrowwallet.parrot'
     mainClass = 'com.sparrowwallet.parrot.Main'
+    applicationDefaultJvmArgs = jvmOptions
 }
 
 dependencies {
@@ -35,4 +48,118 @@ shadowJar {
 
 test {
     useJUnitPlatform()
+}
+
+jlink {
+    mergedModule {
+        requires 'java.xml'
+        requires 'java.logging'
+        requires 'java.naming'
+        requires 'jdk.unsupported'
+    }
+
+    options = ['--strip-native-commands', '--strip-java-debug-attributes', '--compress', 'zip-6', '--no-header-files', '--no-man-pages', '--ignore-signing-information',
+               '--exclude-resources', 'glob:/com.sparrowwallet.merged.module/META-INF/*']
+    launcher {
+        name = 'parrot'
+        jvmArgs = jvmOptions
+    }
+    jpackage {
+        imageName = 'parrot'
+        installerName = 'parrot'
+        appVersion = "${version}"
+        skipInstaller = !os.isLinux()
+        if(os.isLinux()) {
+            installerType = 'deb'
+            installerOptions = ['--license-file', 'LICENSE', '--resource-dir', layout.buildDirectory.dir('deploy/package').get().asFile.toString(),
+                                '--linux-app-category', 'utils', '--linux-app-release', '1', '--linux-deb-maintainer', 'mail@sparrowwallet.com']
+        }
+    }
+}
+
+tasks.jlink.finalizedBy('addUserWritePermission')
+if(os.isLinux()) {
+    tasks.jpackageImage.finalizedBy('prepareResourceDir')
+}
+
+tasks.register('addUserWritePermission', Exec) {
+    commandLine 'chmod', '-R', 'u+w', layout.buildDirectory.dir('image/legal').get().toString()
+}
+
+tasks.register('prepareResourceDir', Copy) {
+    from('src/main/deploy/package/linux')
+    into(layout.buildDirectory.dir('deploy/package'))
+    include('*')
+    eachFile { file ->
+        if(file.name == 'control') {
+            filter { line ->
+                if(line.contains('${size}')) {
+                    line = line.replace('${size}', getDirectorySize(layout.buildDirectory.dir('jpackage/parrot').get().asFile))
+                }
+                return line.replace('${version}', "${version}").replace('${arch}', releaseArch == 'aarch64' ? 'arm64' : 'amd64')
+            }
+        }
+    }
+}
+
+static def getDirectorySize(File directory) {
+    long size = 0
+    directory.eachFileRecurse { file ->
+        if(file.isFile()) {
+            size += file.length()
+        }
+    }
+    return Long.toString(size / 1024 as long)
+}
+
+extraJavaModuleInfo {
+    //Declare full modules rather than automatic ones, so their dependencies such as netty are resolved into the runtime image
+    module('io.lettuce:lettuce-core', 'lettuce.core') {
+        exportAllPackages()
+        requireAllDefinedDependencies()
+        ignoreServiceProvider('javax.enterprise.inject.spi.Extension')
+        //Modules used directly but only reached transitively in the Maven metadata, found with jdeps
+        requires('org.slf4j')
+        requires('io.netty.buffer')
+        requires('io.netty.codec')
+        requires('io.netty.resolver')
+        requires('io.netty.transport.unix.common')
+        requires('org.reactivestreams')
+        requires('java.naming')
+        //Optional integrations that Lettuce detects at runtime
+        requiresStatic('jdk.jfr')
+        requiresStatic('kotlin.stdlib')
+        requiresStatic('com.fasterxml.jackson.databind')
+    }
+    //Drop commons-lang3's requirement on java.desktop, used only by AbstractCircuitBreaker, which nothing here uses
+    module('org.apache.commons:commons-lang3', 'org.apache.commons.lang3') {
+        patchRealModule()
+        exportAllPackages()
+    }
+    module('org.telegram:telegrambots-meta', 'telegrambots.meta') {
+        exportAllPackages()
+        requireAllDefinedDependencies()
+    }
+    module('org.telegram:telegrambots-longpolling', 'telegrambots.longpolling') {
+        exportAllPackages()
+        requireAllDefinedDependencies()
+    }
+    module('org.telegram:telegrambots-client', 'telegrambots.client') {
+        exportAllPackages()
+        requireAllDefinedDependencies()
+    }
+    knownModule('com.squareup.okhttp3:okhttp', 'okhttp3')
+    knownModule('org.slf4j:slf4j-api', 'org.slf4j')
+    knownModule('commons-io:commons-io', 'org.apache.commons.io')
+    knownModule('redis.clients.authentication:redis-authx-core', 'redis.clients.authentication.core')
+    knownModule('io.netty:netty-common', 'io.netty.common')
+    knownModule('io.netty:netty-handler', 'io.netty.handler')
+    knownModule('io.netty:netty-transport', 'io.netty.transport')
+    knownModule('io.projectreactor:reactor-core', 'reactor.core')
+    knownModule('io.netty:netty-resolver-dns', 'io.netty.resolver.dns')
+    knownModule('com.fasterxml.jackson.core:jackson-databind', 'com.fasterxml.jackson.databind')
+    knownModule('com.fasterxml.jackson.datatype:jackson-datatype-jsr310', 'com.fasterxml.jackson.datatype.jsr310')
+    knownModule('org.checkerframework:checker-qual', 'org.checkerframework.checker.qual')
+    automaticModule('org.jetbrains.kotlin:kotlin-stdlib-common', 'kotlin.stdlib.common')
+    automaticModule('org.jetbrains:annotations', 'org.jetbrains.annotations')
 }

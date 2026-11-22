@@ -6,11 +6,20 @@ A welcome message is displayed, and a cooldown period can be added to prevent ne
 
 ## Building
 
-Build Parrot with
+Building requires JDK 25 or later. Build a runnable jar with
 
 ```shell
 ./gradlew clean shadowJar
 ```
+
+On Linux, build a `.deb` package containing Parrot and a minimal Java runtime with
+
+```shell
+./gradlew clean jpackage
+```
+
+This requires `fakeroot` and `dpkg-deb`, and creates `build/jpackage/parrot_1.0-1_amd64.deb` (or `arm64`), which installs Parrot to `/opt/parrot`.
+The launcher `/opt/parrot/bin/parrot` includes the memory-saving JVM options below. On other platforms, `./gradlew jpackageImage` builds the application image only.
 
 ## Running
 
