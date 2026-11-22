@@ -72,6 +72,14 @@ public class ParrotBot implements SpringLongPollingBot, LongPollingSingleThreadU
 
     @Override
     public void consume(Update update) {
+        try {
+            handleUpdate(update);
+        } catch(RuntimeException e) {
+            log.error("Error handling update " + update.getUpdateId(), e);
+        }
+    }
+
+    private void handleUpdate(Update update) {
         if(update.hasMessage() && update.getMessage().getChat().isUserChat()) {
             Long userId = update.getMessage().getFrom().getId();
 
