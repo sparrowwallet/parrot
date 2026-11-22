@@ -31,7 +31,13 @@ Optionally, add another environmental variable to set a cooldown period for new 
 PARROT_COOLDOWN_PERIOD_MINUTES=10
 ```
 
-Parrot stores its data in Redis at `localhost:6379` by default. For testing without Redis, an in-memory store that is lost on restart can be used instead:
+Parrot stores its data in Redis at `localhost:6379` by default. To connect elsewhere or use a password, set the Redis URL:
+```shell
+PARROT_REDIS_URL=redis://:password@localhost:6379
+```
+Characters in the password that are special in URLs (such as `@`, `:`, `/` or `%`) must be percent-encoded, or use a hex password from `openssl rand -hex 32`.
+
+For testing without Redis, an in-memory store that is lost on restart can be used instead:
 ```shell
 PARROT_STORE=java
 ```

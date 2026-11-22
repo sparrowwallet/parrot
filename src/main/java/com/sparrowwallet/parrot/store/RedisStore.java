@@ -2,6 +2,7 @@ package com.sparrowwallet.parrot.store;
 
 import com.sparrowwallet.parrot.ForwardedMessage;
 import io.lettuce.core.RedisClient;
+import io.lettuce.core.RedisURI;
 import io.lettuce.core.api.StatefulRedisConnection;
 import io.lettuce.core.api.sync.RedisCommands;
 import org.slf4j.Logger;
@@ -11,13 +12,20 @@ import java.util.List;
 
 public class RedisStore implements Store {
     private static final Logger log = LoggerFactory.getLogger(RedisStore.class);
+    public static final String DEFAULT_REDIS_URL = "redis://localhost:6379";
 
     private final RedisClient redisClient;
     private final StatefulRedisConnection<String, String> connection;
 
     public RedisStore() {
-        log.info("Opening redis connection");
-        this.redisClient = RedisClient.create("redis://localhost:6379");
+        this(DEFAULT_REDIS_URL);
+    }
+
+    public RedisStore(String redisUrl) {
+        RedisURI redisUri = RedisURI.create(redisUrl);
+        //Log only the host and port, as the URL may contain a password
+        log.info("Opening redis connection to " + redisUri.getHost() + ":" + redisUri.getPort());
+        this.redisClient = RedisClient.create(redisUri);
         this.connection = redisClient.connect();
     }
 

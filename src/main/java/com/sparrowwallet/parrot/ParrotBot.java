@@ -36,6 +36,7 @@ public class ParrotBot extends DefaultLongPollingUpdateConsumer {
     public static final String PARROT_BOT_USERNAME = "PARROT_BOT_USERNAME";
     public static final String PARROT_COOLDOWN_PERIOD_MINUTES = "PARROT_COOLDOWN_PERIOD_MINUTES";
     public static final String PARROT_STORE = "PARROT_STORE";
+    public static final String PARROT_REDIS_URL = "PARROT_REDIS_URL";
     public static final String PARROT_NYM_SECRET = "PARROT_NYM_SECRET";
     public static final String MEMBER = "member";
     public static final String KICKED = "kicked";

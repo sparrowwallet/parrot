@@ -42,7 +42,8 @@ public class Main {
             System.exit(1);
         }
 
-        Store store = "java".equalsIgnoreCase(System.getenv(ParrotBot.PARROT_STORE)) ? new JavaStore() : new RedisStore();
+        String redisUrl = System.getenv(ParrotBot.PARROT_REDIS_URL);
+        Store store = "java".equalsIgnoreCase(System.getenv(ParrotBot.PARROT_STORE)) ? new JavaStore() : new RedisStore(redisUrl == null ? RedisStore.DEFAULT_REDIS_URL : redisUrl);
         TelegramBotsLongPollingApplication botsApplication = new TelegramBotsLongPollingApplication();
 
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
