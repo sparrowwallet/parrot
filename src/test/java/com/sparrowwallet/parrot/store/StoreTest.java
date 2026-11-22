@@ -12,11 +12,13 @@ import java.util.List;
 
 public class StoreTest {
     private static final String NYM = "#DeliciousMonster";
+    //Use a separate database so the test cannot touch the bot's data, which is in database 0 by default
+    private static final String TEST_REDIS_URL = "redis://localhost:6379/15";
 
     @BeforeEach
     public void deleteTestKeys() {
         //The Redis store persists between runs, so remove the keys this test writes to keep it repeatable
-        RedisClient redisClient = RedisClient.create("redis://localhost:6379");
+        RedisClient redisClient = RedisClient.create(TEST_REDIS_URL);
         try(StatefulRedisConnection<String, String> connection = redisClient.connect()) {
             connection.sync().del("nymMsg:" + NYM, "nymBanned:" + NYM, "fwdMsg:88", "sentMsg:1", "sentMsg:2", "sentReply:5", "sentReply:6", "user:1", "welcomeMsg");
         } finally {
@@ -91,6 +93,6 @@ public class StoreTest {
     }
 
     private Store getStore() {
-        return new RedisStore();
+        return new RedisStore(TEST_REDIS_URL);
     }
 }
