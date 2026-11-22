@@ -137,6 +137,7 @@ public class ParrotBot implements SpringLongPollingBot, LongPollingSingleThreadU
         SendMessage sendMessage = SendMessage.builder()
                 .text(nym + ": " + update.getMessage().getText())
                 .replyToMessageId(replyToMessageId)
+                .allowSendingWithoutReply(true)
                 .chatId(getGroupId()).build();
 
         try {
@@ -170,6 +171,7 @@ public class ParrotBot implements SpringLongPollingBot, LongPollingSingleThreadU
                 .photo(inputFile)
                 .caption(update.getMessage().getCaption() == null ? "From " + nym : nym + ": " + update.getMessage().getCaption())
                 .replyToMessageId(replyToMessageId)
+                .allowSendingWithoutReply(true)
                 .chatId(getGroupId()).build();
 
         try {
@@ -249,6 +251,7 @@ public class ParrotBot implements SpringLongPollingBot, LongPollingSingleThreadU
             SendMessage replyMessage = SendMessage.builder()
                     .text(userName + ": " + update.getMessage().getText())
                     .replyToMessageId(forwardedMessage.messageId())
+                    .allowSendingWithoutReply(true)
                     .chatId(forwardedMessage.chatId()).build();
 
             try {
@@ -264,6 +267,7 @@ public class ParrotBot implements SpringLongPollingBot, LongPollingSingleThreadU
                     .photo(inputFile)
                     .caption(update.getMessage().getCaption() == null ? "From " + userName : userName + ": " + update.getMessage().getCaption())
                     .replyToMessageId(forwardedMessage.messageId())
+                    .allowSendingWithoutReply(true)
                     .chatId(forwardedMessage.chatId()).build();
 
             try {
