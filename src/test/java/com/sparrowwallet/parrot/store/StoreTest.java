@@ -1,18 +1,34 @@
 package com.sparrowwallet.parrot.store;
 
 import com.sparrowwallet.parrot.ForwardedMessage;
+import io.lettuce.core.RedisClient;
+import io.lettuce.core.api.StatefulRedisConnection;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.util.List;
 
 public class StoreTest {
+    private static final String NYM = "#DeliciousMonster";
+
+    @BeforeEach
+    public void deleteTestKeys() {
+        //The Redis store persists between runs, so remove the keys this test writes to keep it repeatable
+        RedisClient redisClient = RedisClient.create("redis://localhost:6379");
+        try(StatefulRedisConnection<String, String> connection = redisClient.connect()) {
+            connection.sync().del("nymMsg:" + NYM, "nymBanned:" + NYM, "fwdMsg:88", "sentMsg:1", "sentMsg:2", "sentReply:5", "sentReply:6", "user:1", "welcomeMsg");
+        } finally {
+            redisClient.shutdown();
+        }
+    }
+
     @Test
     public void test() throws IOException {
         Store store = getStore();
 
-        String nym = "#DeliciousMonster";
+        String nym = NYM;
 
         for(int i = 1; i <= 5; i++) {
             store.addSentNymMessage(nym, i);
@@ -61,9 +77,9 @@ public class StoreTest {
         Assertions.assertTrue(store.hasBannedNym(nym));
         Assertions.assertFalse(store.hasBannedNym("#xyz"));
 
-        store.removeBannedNym(nym);
-
+        Assertions.assertTrue(store.removeBannedNym(nym));
         Assertions.assertFalse(store.hasBannedNym(nym));
+        Assertions.assertFalse(store.removeBannedNym(nym));
 
         long timestamp = System.currentTimeMillis();
         store.newUserAdded(1L, timestamp);
