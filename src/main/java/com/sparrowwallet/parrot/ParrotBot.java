@@ -61,8 +61,11 @@ public class ParrotBot implements SpringLongPollingBot, LongPollingSingleThreadU
         if(update.hasMessage() && update.getMessage().getChat().isUserChat()) {
             Long userId = update.getMessage().getFrom().getId();
 
-            if(!rateLimiter.tryAcquire(userId)) {
-                sendRateLimitedMessage(update);
+            RateLimiter.Result rateLimit = rateLimiter.tryAcquire(userId);
+            if(rateLimit != RateLimiter.Result.ACQUIRED) {
+                if(rateLimit == RateLimiter.Result.REJECTED) {
+                    sendRateLimitedMessage(update);
+                }
             } else if(update.getMessage().hasText()) {
                 if(update.getMessage().getText().startsWith("/ban ") && isGroupAdmin(update.getMessage().getFrom().getId())) {
                     banNym(update.getMessage().getChatId(), update.getMessage().getText().substring(5));
@@ -369,7 +372,7 @@ public class ParrotBot implements SpringLongPollingBot, LongPollingSingleThreadU
     private void sendRateLimitedMessage(Update update) {
         SendMessage sendMessage = SendMessage.builder()
                 .chatId(update.getMessage().getChatId())
-                .text("Too many messages, please wait awhile...").build();
+                .text("Too many messages, please wait a minute before sending again. Messages sent until then will not be forwarded.").build();
 
         try {
             telegramClient.execute(sendMessage);
