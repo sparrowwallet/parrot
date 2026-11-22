@@ -50,6 +50,14 @@ public class ParrotBot implements SpringLongPollingBot, LongPollingSingleThreadU
     private static final long WELCOME_MESSAGE_TIMEOUT = 60 * 60 * 1000;
     private final Map<Integer, Long> welcomeMessages = Collections.synchronizedMap(new HashMap<>());
 
+    private static final int MAX_TRACKED_ALBUMS = 1000;
+    private final Map<Long, Album> lastAlbums = new LinkedHashMap<>() {
+        @Override
+        protected boolean removeEldestEntry(Map.Entry<Long, Album> eldest) {
+            return size() > MAX_TRACKED_ALBUMS;
+        }
+    };
+
     public ParrotBot(Store store) {
         this.store = store;
         this.telegramClient = new OkHttpTelegramClient(getBotToken());
@@ -61,7 +69,21 @@ public class ParrotBot implements SpringLongPollingBot, LongPollingSingleThreadU
         if(update.hasMessage() && update.getMessage().getChat().isUserChat()) {
             Long userId = update.getMessage().getFrom().getId();
 
-            RateLimiter.Result rateLimit = rateLimiter.tryAcquire(userId);
+            //Each photo in an album arrives as a separate message: rate limit and confirm the album once, as its first photo
+            String mediaGroupId = update.getMessage().getMediaGroupId();
+            Album lastAlbum = mediaGroupId == null ? null : lastAlbums.get(userId);
+            boolean albumContinuation = lastAlbum != null && lastAlbum.mediaGroupId().equals(mediaGroupId);
+
+            RateLimiter.Result rateLimit;
+            if(albumContinuation) {
+                rateLimit = lastAlbum.rateLimit() == RateLimiter.Result.ACQUIRED ? RateLimiter.Result.ACQUIRED : RateLimiter.Result.REJECTED_AGAIN;
+            } else {
+                rateLimit = rateLimiter.tryAcquire(userId);
+                if(mediaGroupId != null) {
+                    lastAlbums.put(userId, new Album(mediaGroupId, rateLimit));
+                }
+            }
+
             if(rateLimit != RateLimiter.Result.ACQUIRED) {
                 if(rateLimit == RateLimiter.Result.REJECTED) {
                     sendRateLimitedMessage(update);
@@ -77,7 +99,7 @@ public class ParrotBot implements SpringLongPollingBot, LongPollingSingleThreadU
                     forwardText(update, userId.toString());
                 }
             } else if(update.getMessage().hasPhoto()) {
-                forwardPhoto(update, userId.toString());
+                forwardPhoto(update, userId.toString(), albumContinuation);
             }
         } else if(update.hasEditedMessage() && update.getEditedMessage().hasText() && update.getEditedMessage().getChat().isUserChat()) {
             forwardEditedMessage(update.getEditedMessage());
@@ -156,10 +178,12 @@ public class ParrotBot implements SpringLongPollingBot, LongPollingSingleThreadU
         }
     }
 
-    private void forwardPhoto(Update update, String userId) {
+    private void forwardPhoto(Update update, String userId, boolean albumContinuation) {
         String nym = NymGenerator.getNym(userId);
         if(store.hasBannedNym(nym)) {
-            sendBannedMessage(update.getMessage().getChatId());
+            if(!albumContinuation) {
+                sendBannedMessage(update.getMessage().getChatId());
+            }
             return;
         }
 
@@ -182,7 +206,7 @@ public class ParrotBot implements SpringLongPollingBot, LongPollingSingleThreadU
             store.addSentNymMessage(nym, sentMessage.getMessageId());
             store.addForwardedMessage(update.getMessage().getMessageId(), sentMessage.getMessageId());
             store.addSentMessage(sentMessage.getMessageId(), new ForwardedMessage(update.getMessage().getChatId(), update.getMessage().getMessageId()));
-            if(replyToMessageId == null) {
+            if(replyToMessageId == null && !albumContinuation) {
                 sendForwardConfirmation(update.getMessage().getChatId(), true);
             }
         } catch(TelegramApiException e) {
@@ -512,6 +536,8 @@ public class ParrotBot implements SpringLongPollingBot, LongPollingSingleThreadU
 
         return null;
     }
+
+    private record Album(String mediaGroupId, RateLimiter.Result rateLimit) {}
 
     @PreDestroy
     public void shutdown() throws Exception {
