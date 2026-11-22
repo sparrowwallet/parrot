@@ -6,18 +6,21 @@ import org.slf4j.LoggerFactory;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
+import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
-import java.util.HexFormat;
 import java.util.List;
+import javax.crypto.Mac;
+import javax.crypto.spec.SecretKeySpec;
 
 public class NymGenerator {
     private static final Logger log = LoggerFactory.getLogger(NymGenerator.class);
 
     private static final String ENGLISH_ADJECTIVES_NAME = "/english-adjectives.txt";
     private static final String ENGLISH_NOUNS_NAME = "/english-nouns.txt";
+    private static final String HMAC_SHA256 = "HmacSHA256";
 
     private static final List<String> ENGLISH_ADJECTIVES;
     private static final List<String> ENGLISH_NOUNS;
@@ -41,32 +44,30 @@ public class NymGenerator {
         }
     }
 
-    public static String getNym(String userName) {
-        byte[] digestBytes = sha256Hash(userName);
+    public static String getNym(String userId) {
+        return getNym(System.getenv(ParrotBot.PARROT_NYM_SECRET), userId);
+    }
 
-        HexFormat format = HexFormat.of();
-        String first = format.formatHex(digestBytes, 0, digestBytes.length / 2);
-        String second = format.formatHex(digestBytes, digestBytes.length / 2, digestBytes.length);
-
-        int adjectiveHash = first.hashCode();
-        String adjective = ENGLISH_ADJECTIVES.get(Math.abs(adjectiveHash) % ENGLISH_ADJECTIVES.size());
-
-        int nounHash = second.hashCode();
-        String noun = ENGLISH_NOUNS.get(Math.abs(nounHash) % ENGLISH_NOUNS.size());
+    static String getNym(String secret, String userId) {
+        ByteBuffer digest = ByteBuffer.wrap(hmacSha256(secret, userId));
+        String adjective = ENGLISH_ADJECTIVES.get((int)Long.remainderUnsigned(digest.getLong(), ENGLISH_ADJECTIVES.size()));
+        String noun = ENGLISH_NOUNS.get((int)Long.remainderUnsigned(digest.getLong(), ENGLISH_NOUNS.size()));
 
         return "#" + capitalize(adjective) + capitalize(noun);
     }
 
-    private static byte[] sha256Hash(String userName) {
-        try {
-            MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            digest.update(userName.getBytes(StandardCharsets.UTF_8), 0, userName.length());
-            return digest.digest();
-        } catch(NoSuchAlgorithmException e) {
-            log.error("Failed to generate SHA-256 hash", e);
+    private static byte[] hmacSha256(String secret, String userId) {
+        if(secret == null || secret.isEmpty()) {
+            throw new IllegalStateException(ParrotBot.PARROT_NYM_SECRET + " is not set");
         }
 
-        return new byte[0];
+        try {
+            Mac mac = Mac.getInstance(HMAC_SHA256);
+            mac.init(new SecretKeySpec(secret.getBytes(StandardCharsets.UTF_8), HMAC_SHA256));
+            return mac.doFinal(userId.getBytes(StandardCharsets.UTF_8));
+        } catch(NoSuchAlgorithmException | InvalidKeyException e) {
+            throw new IllegalStateException("Failed to generate HMAC-SHA256", e);
+        }
     }
 
     private static String capitalize(String s) {

@@ -19,7 +19,12 @@ First set enviroment variables:
 PARROT_BOT_TOKEN=XXXXXXXXXXXX:XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
 PARROT_BOT_USERNAME=@BotName
 PARROT_GROUP_ID=-XXXXXXXXX
+PARROT_NYM_SECRET=XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
 ```
+
+`PARROT_NYM_SECRET` is the key used to derive each user's pseudonym from their Telegram user ID, and must be at least 32 characters long.
+Generate one with `openssl rand -hex 32` and keep it private: anyone who knows it can link pseudonyms to group members.
+Changing it changes every user's pseudonym and makes existing bans ineffective.
 
 Optionally, add another environmental variable to set a cooldown period for new users joining the group:
 ```shell

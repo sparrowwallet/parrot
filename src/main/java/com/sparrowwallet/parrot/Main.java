@@ -9,6 +9,7 @@ import org.telegram.telegrambots.longpolling.TelegramBotsLongPollingApplication;
 @SpringBootApplication
 public class Main {
     private static final Logger log = LoggerFactory.getLogger(Main.class);
+    private static final int MIN_NYM_SECRET_LENGTH = 32;
 
     public static void main(String[] args) {
         String botToken = System.getenv(ParrotBot.PARROT_BOT_TOKEN);
@@ -26,6 +27,12 @@ public class Main {
         String groupId = System.getenv(ParrotBot.PARROT_GROUP_ID);
         if(groupId == null) {
             System.err.println(ParrotBot.PARROT_GROUP_ID + " environment variable not set");
+            System.exit(1);
+        }
+
+        String nymSecret = System.getenv(ParrotBot.PARROT_NYM_SECRET);
+        if(nymSecret == null || nymSecret.length() < MIN_NYM_SECRET_LENGTH) {
+            System.err.println(ParrotBot.PARROT_NYM_SECRET + " environment variable not set or shorter than " + MIN_NYM_SECRET_LENGTH + " characters");
             System.exit(1);
         }
 

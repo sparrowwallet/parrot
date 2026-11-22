@@ -35,6 +35,7 @@ public class ParrotBot implements SpringLongPollingBot, LongPollingSingleThreadU
     public static final String PARROT_GROUP_ID = "PARROT_GROUP_ID";
     public static final String PARROT_BOT_USERNAME = "PARROT_BOT_USERNAME";
     public static final String PARROT_COOLDOWN_PERIOD_MINUTES = "PARROT_COOLDOWN_PERIOD_MINUTES";
+    public static final String PARROT_NYM_SECRET = "PARROT_NYM_SECRET";
     public static final String MEMBER = "member";
     public static final String LEFT = "left";
     public static final String KICKED = "kicked";
